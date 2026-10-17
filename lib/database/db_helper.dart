@@ -15,9 +15,18 @@ class DBHelper {
   Future<Database> _initDB(String fileName) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, fileName);
-    return await openDatabase(path, version: 5,
-        onCreate: _createDB, onUpgrade: _upgradeDB);
+    return openAt(path);
   }
+
+  // The factory is injectable so migrations can be verified against real SQLite.
+  Future<Database> openAt(String path, {DatabaseFactory? factory}) =>
+      (factory ?? databaseFactory).openDatabase(path,
+          options: OpenDatabaseOptions(
+            version: 6,
+            onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
+            onCreate: _createDB,
+            onUpgrade: _upgradeDB,
+          ));
 
   Future<void> _createDB(Database db, int version) async {
     // Couleurs planning
@@ -37,7 +46,8 @@ class DBHelper {
         startTime TEXT NOT NULL,
         endTime TEXT,
         pauseMinutes INTEGER DEFAULT 0,
-        isActive INTEGER DEFAULT 1
+        isActive INTEGER DEFAULT 1,
+        revision INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -49,6 +59,8 @@ class DBHelper {
         jour TEXT NOT NULL,
         startMinutes INTEGER NOT NULL,
         endMinutes INTEGER NOT NULL,
+        startTime TEXT,
+        endTime TEXT,
         FOREIGN KEY (sessionId) REFERENCES chrono_sessions(id) ON DELETE CASCADE
       )
     ''');
@@ -110,24 +122,58 @@ class DBHelper {
           AND sessionId IN (SELECT id FROM chrono_sessions WHERE isActive = 1)
       ''');
     }
+    if (oldV < 6) {
+      await db.execute(
+          'ALTER TABLE chrono_sessions ADD COLUMN revision INTEGER NOT NULL DEFAULT 0');
+      await db.execute('ALTER TABLE pause_plages ADD COLUMN startTime TEXT');
+      await db.execute('ALTER TABLE pause_plages ADD COLUMN endTime TEXT');
+      final pauses = await db.query('pause_plages');
+      for (final pause in pauses) {
+        final day = DateTime.parse(pause['jour'] as String);
+        final startMinutes = pause['startMinutes'] as int;
+        final endMinutes = pause['endMinutes'] as int;
+        final start = DateTime(day.year, day.month, day.day, startMinutes ~/ 60,
+            startMinutes % 60);
+        DateTime? end;
+        if (endMinutes >= 0) {
+          end = DateTime(
+              day.year, day.month, day.day, endMinutes ~/ 60, endMinutes % 60);
+          if (end.isBefore(start)) {
+            end = DateTime(day.year, day.month, day.day + 1, endMinutes ~/ 60,
+                endMinutes % 60);
+          }
+        }
+        await db.update(
+            'pause_plages',
+            {
+              'startTime': start.toIso8601String(),
+              'endTime': end?.toIso8601String(),
+            },
+            where: 'id = ?',
+            whereArgs: [pause['id']]);
+      }
+    }
   }
 
   // ── SHIFTS (couleurs) ─────────────────────────────────────────────────────
   Future<int> upsertShiftType(String jour, String type) async {
     final db = await database;
-    final existing = await db.query('shifts', where: 'jour = ?', whereArgs: [jour]);
+    final existing =
+        await db.query('shifts', where: 'jour = ?', whereArgs: [jour]);
     if (existing.isEmpty) {
       return await db.insert('shifts', {'jour': jour, 'type': type});
     } else {
-      await db.update('shifts', {'type': type}, where: 'jour = ?', whereArgs: [jour]);
+      await db.update('shifts', {'type': type},
+          where: 'jour = ?', whereArgs: [jour]);
       return existing.first['id'] as int;
     }
   }
 
-  Future<List<Map<String, dynamic>>> getShiftsByMonth(int year, int month) async {
+  Future<List<Map<String, dynamic>>> getShiftsByMonth(
+      int year, int month) async {
     final db = await database;
     final from = '$year-${month.toString().padLeft(2, '0')}-01';
-    final to   = '$year-${month.toString().padLeft(2, '0')}-31';
+    final to = '$year-${month.toString().padLeft(2, '0')}-31';
     return await db.query('shifts',
         where: 'jour >= ? AND jour <= ?', whereArgs: [from, to]);
   }
@@ -153,7 +199,13 @@ class DBHelper {
     });
   }
 
-  Future<void> updateSession(int id, {String? jour, String? startTime, String? endTime, int? pauseMinutes, int? isActive, bool clearEndTime = false}) async {
+  Future<void> updateSession(int id,
+      {String? jour,
+      String? startTime,
+      String? endTime,
+      int? pauseMinutes,
+      int? isActive,
+      bool clearEndTime = false}) async {
     final db = await database;
     final map = <String, dynamic>{};
     if (jour != null) map['jour'] = jour;
@@ -180,7 +232,8 @@ class DBHelper {
         where: 'jour = ?', whereArgs: [jour], orderBy: 'startTime ASC');
   }
 
-  Future<List<Map<String, dynamic>>> getSessionsByWeek(String from, String to) async {
+  Future<List<Map<String, dynamic>>> getSessionsByWeek(
+      String from, String to) async {
     final db = await database;
     return await db.query('chrono_sessions',
         where: 'jour >= ? AND jour <= ? AND isActive = 0',
@@ -211,7 +264,8 @@ class DBHelper {
   }
 
   // ── PLAGES DE PAUSE ───────────────────────────────────────────────────────
-  Future<int> insertPausePlage(int sessionId, String jour, int startMin, int endMin) async {
+  Future<int> insertPausePlage(
+      int sessionId, String jour, int startMin, int endMin) async {
     final db = await database;
     return await db.insert('pause_plages', {
       'sessionId': sessionId,
@@ -227,14 +281,17 @@ class DBHelper {
         where: 'jour = ?', whereArgs: [jour], orderBy: 'startMinutes ASC');
   }
 
-  Future<List<Map<String, dynamic>>> getPausePlagesBySession(int sessionId) async {
+  Future<List<Map<String, dynamic>>> getPausePlagesBySession(
+      int sessionId) async {
     final db = await database;
-    return db.query('pause_plages', where: 'sessionId = ?', whereArgs: [sessionId], orderBy: 'id ASC');
+    return db.query('pause_plages',
+        where: 'sessionId = ?', whereArgs: [sessionId], orderBy: 'id ASC');
   }
 
   Future<void> deletePausePlagesBySession(int sessionId) async {
     final db = await database;
-    await db.delete('pause_plages', where: 'sessionId = ?', whereArgs: [sessionId]);
+    await db
+        .delete('pause_plages', where: 'sessionId = ?', whereArgs: [sessionId]);
   }
 
   Future<void> deletePausePlagesByDate(String jour) async {
@@ -243,7 +300,8 @@ class DBHelper {
   }
 
   // Met à jour une pause en cours (endMinutes=-1 est le marqueur ouvert).
-  Future<void> updateLastPausePlage(int sessionId, int startMins, int endMins) async {
+  Future<void> updateLastPausePlage(
+      int sessionId, int startMins, int endMins) async {
     final db = await database;
     await db.update(
       'pause_plages',
@@ -266,8 +324,8 @@ class DBHelper {
 
   Future<int> updateConstante(Map<String, dynamic> row) async {
     final db = await database;
-    return await db.update('constantes', row,
-        where: 'id = ?', whereArgs: [row['id']]);
+    return await db
+        .update('constantes', row, where: 'id = ?', whereArgs: [row['id']]);
   }
 
   Future<int> deleteConstante(int id) async {
@@ -288,8 +346,8 @@ class DBHelper {
 
   Future<int> updateMateriel(Map<String, dynamic> row) async {
     final db = await database;
-    return await db.update('materiels', row,
-        where: 'id = ?', whereArgs: [row['id']]);
+    return await db
+        .update('materiels', row, where: 'id = ?', whereArgs: [row['id']]);
   }
 
   Future<int> deleteMateriel(int id) async {
@@ -305,12 +363,14 @@ class DBHelper {
 
   Future<List<Map<String, dynamic>>> getAllMedications() async {
     final db = await database;
-    return db.query('medications', orderBy: 'datePeremption ASC, nom COLLATE NOCASE ASC');
+    return db.query('medications',
+        orderBy: 'datePeremption ASC, nom COLLATE NOCASE ASC');
   }
 
   Future<int> updateMedication(Map<String, dynamic> row) async {
     final db = await database;
-    return db.update('medications', row, where: 'id = ?', whereArgs: [row['id']]);
+    return db
+        .update('medications', row, where: 'id = ?', whereArgs: [row['id']]);
   }
 
   Future<int> deleteMedication(int id) async {

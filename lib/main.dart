@@ -9,6 +9,7 @@ import 'providers/planning_provider.dart';
 import 'providers/constantes_provider.dart';
 import 'providers/medications_provider.dart';
 import 'database/db_helper.dart';
+import 'services/work_sessions.dart';
 import 'screens/home/home_screen.dart';
 
 void main() async {
@@ -26,20 +27,15 @@ class ProTimeManagerApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => PlanningProvider()),
-        ChangeNotifierProxyProvider<PlanningProvider, ChronoProvider>(
-          create: (_) => ChronoProvider(),
-          update: (_, planning, chrono) {
-            // ✅ Chrono notifie le planning en temps réel (start, pause, stop)
-            chrono!.onPlanningRefresh = (jour) async {
-              await planning.refreshDay(jour);
-            };
-            planning.onSessionChanged = chrono.reloadActiveSession;
-            return chrono;
-          },
-        ),
+        ChangeNotifierProvider(create: (_) => WorkSessions(), lazy: false),
+        ChangeNotifierProvider(
+            create: (context) =>
+                PlanningProvider(context.read<WorkSessions>())),
+        ChangeNotifierProvider(
+            create: (context) => ChronoProvider(context.read<WorkSessions>())),
         ChangeNotifierProvider(create: (_) => ConstantesProvider()),
-        ChangeNotifierProvider(lazy: false, create: (_) => MedicationsProvider()),
+        ChangeNotifierProvider(
+            lazy: false, create: (_) => MedicationsProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {

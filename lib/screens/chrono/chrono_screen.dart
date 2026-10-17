@@ -3,17 +3,18 @@ import 'package:provider/provider.dart';
 import '../../providers/chrono_provider.dart';
 import '../../providers/planning_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/session_editor.dart';
 
 class ChronoScreen extends StatelessWidget {
   const ChronoScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final chrono   = context.watch<ChronoProvider>();
+    final chrono = context.watch<ChronoProvider>();
     final planning = context.watch<PlanningProvider>();
-    final theme    = Theme.of(context);
-    final monday   = planning.currentWeekMonday;
-    final weekMin  = planning.weeklyWorkedMinutes(monday);
+    final theme = Theme.of(context);
+    final monday = planning.currentWeekMonday;
+    final weekMin = planning.weeklyWorkedMinutes(monday);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -26,6 +27,15 @@ class ChronoScreen extends StatelessWidget {
                   style: theme.textTheme.headlineMedium
                       ?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 28),
+
+              if (chrono.error != null || chrono.loadError != null) ...[
+                Text(chrono.error ?? chrono.loadError!,
+                    style: TextStyle(color: theme.colorScheme.error)),
+                TextButton(
+                    onPressed: chrono.isBusy ? null : chrono.retry,
+                    child: const Text('Réessayer')),
+              ],
+              if (chrono.isBusy) const LinearProgressIndicator(),
 
               // ── Grand affichage ──
               _ChronoRing(chrono: chrono),
@@ -45,7 +55,12 @@ class ChronoScreen extends StatelessWidget {
               const SizedBox(height: 28),
 
               // ── Boutons ──
-              _ControlButtons(chrono: chrono),
+              AbsorbPointer(
+                absorbing: chrono.isBusy || chrono.loadError != null,
+                child: Opacity(
+                    opacity: chrono.isBusy ? .5 : 1,
+                    child: _ControlButtons(chrono: chrono)),
+              ),
               const SizedBox(height: 20),
 
               // ── Sessions du jour ──
@@ -79,14 +94,18 @@ class _ChronoRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final elapsed   = chrono.elapsed;
-    final isPaused  = chrono.isPaused;
+    final elapsed = chrono.elapsed;
+    final isPaused = chrono.isPaused;
     final isRunning = chrono.isRunning;
 
     Color color;
-    if (isPaused)       color = Colors.orange;
-    else if (isRunning) color = AppTheme.primaryColor;
-    else                color = Colors.grey.shade600;
+    if (isPaused) {
+      color = Colors.orange;
+    } else if (isRunning) {
+      color = AppTheme.primaryColor;
+    } else {
+      color = Colors.grey.shade600;
+    }
 
     return Container(
       width: 210,
@@ -96,8 +115,12 @@ class _ChronoRing extends StatelessWidget {
         border: Border.all(color: color, width: 4),
         color: color.withValues(alpha: 0.07),
         boxShadow: isRunning && !isPaused
-            ? [BoxShadow(color: color.withValues(alpha: 0.25),
-                blurRadius: 20, spreadRadius: 2)]
+            ? [
+                BoxShadow(
+                    color: color.withValues(alpha: 0.25),
+                    blurRadius: 20,
+                    spreadRadius: 2)
+              ]
             : [],
       ),
       child: Column(
@@ -114,11 +137,13 @@ class _ChronoRing extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            isPaused ? '⏸ En pause'
-                : isRunning ? '▶ En cours'
-                : '⏹ Arrêté',
-            style: TextStyle(color: color, fontSize: 13,
-                fontWeight: FontWeight.w500),
+            isPaused
+                ? '⏸ En pause'
+                : isRunning
+                    ? '▶ En cours'
+                    : '⏹ Arrêté',
+            style: TextStyle(
+                color: color, fontSize: 13, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -142,8 +167,8 @@ class _PauseDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPaused   = chrono.isPaused;
-    final current    = chrono.current;
+    final isPaused = chrono.isPaused;
+    final current = chrono.current;
     if (current == null) return const SizedBox();
 
     final pausesSaved = current.pauses.where((p) => p.end != null).toList();
@@ -171,14 +196,12 @@ class _PauseDisplay extends StatelessWidget {
                       ? '⏸ Pause : ${_fmtSecs(currentPauseSecs)}'
                       : 'Pauses : ${current.totalPauseMinutes}min',
                   style: const TextStyle(
-                      color: Colors.orange,
-                      fontWeight: FontWeight.bold),
+                      color: Colors.orange, fontWeight: FontWeight.bold),
                 ),
               ]),
               GestureDetector(
                 onTap: () => _editPause(context),
-                child: const Icon(Icons.edit,
-                    color: Colors.orange, size: 18),
+                child: const Icon(Icons.edit, color: Colors.orange, size: 18),
               ),
             ],
           ),
@@ -187,9 +210,7 @@ class _PauseDisplay extends StatelessWidget {
             const SizedBox(height: 6),
             ...pausesSaved.map((p) => Text(
                   '  ${_fmtTime(p.start)} → ${_fmtTime(p.end!)}  (${p.durationMinutes}min)',
-                  style: const TextStyle(
-                      color: Colors.orange,
-                      fontSize: 12),
+                  style: const TextStyle(color: Colors.orange, fontSize: 12),
                 )),
           ],
         ],
@@ -198,36 +219,9 @@ class _PauseDisplay extends StatelessWidget {
   }
 
   void _editPause(BuildContext context) {
-    final current = chrono.current!;
-    final ctrl = TextEditingController(
-        text: '${current.totalPauseMinutes}');
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Modifier total pause'),
-        content: TextField(
-          controller: ctrl,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            suffix: Text('min'),
-            labelText: 'Minutes de pause',
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Annuler')),
-          ElevatedButton(
-            onPressed: () {
-              final mins = int.tryParse(ctrl.text) ?? 0;
-              context.read<ChronoProvider>().overridePause(mins);
-              Navigator.pop(ctx);
-            },
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
+    if (chrono.current == null || chrono.isBusy) return;
+    showSessionEditor(context,
+        day: chrono.current!.date, session: chrono.current);
   }
 }
 
@@ -239,7 +233,7 @@ class _ControlButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isRunning = chrono.isRunning;
-    final isPaused  = chrono.isPaused;
+    final isPaused = chrono.isPaused;
     final hasActive = chrono.hasActive;
 
     return Row(
@@ -250,9 +244,8 @@ class _ControlButtons extends StatelessWidget {
             icon: Icons.play_arrow_rounded,
             label: hasActive ? 'Reprendre' : 'Démarrer',
             color: Colors.green,
-            onTap: hasActive
-                ? () => chrono.resumePause()
-                : () => chrono.start(),
+            onTap:
+                hasActive ? () => chrono.resumePause() : () => chrono.start(),
           ),
         if (isRunning) ...[
           const SizedBox(width: 20),
@@ -292,8 +285,8 @@ class _ControlButtons extends StatelessWidget {
               context.read<ChronoProvider>().stop();
               Navigator.pop(ctx);
             },
-            child: const Text('Terminer',
-                style: TextStyle(color: Colors.white)),
+            child:
+                const Text('Terminer', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -332,9 +325,7 @@ class _Btn extends StatelessWidget {
         const SizedBox(height: 6),
         Text(label,
             style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.w600,
-                fontSize: 12)),
+                color: color, fontWeight: FontWeight.w600, fontSize: 12)),
       ]),
     );
   }
@@ -377,18 +368,14 @@ class _SessionsList extends StatelessWidget {
                     : Colors.grey.withValues(alpha: 0.2),
               ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(children: [
-                  Text('Session $i  ',
-                      style: TextStyle(
-                          color: isActive
-                              ? AppTheme.primaryColor
-                              : Colors.grey,
-                          fontWeight: FontWeight.bold)),
-                  Text('${_fmtTime(s.startTime)} → $endStr'),
-                ]),
+                Text('Session $i',
+                    style: TextStyle(
+                        color: isActive ? AppTheme.primaryColor : Colors.grey,
+                        fontWeight: FontWeight.bold)),
+                Text('${_fmtTime(s.startTime)} → $endStr'),
                 if (!isActive)
                   Text(
                     '${worked ~/ 60}h${(worked % 60).toString().padLeft(2, '0')}',
@@ -398,8 +385,8 @@ class _SessionsList extends StatelessWidget {
                   ),
                 if (s.totalPauseMinutes > 0)
                   Text('⏸ ${s.totalPauseMinutes}min',
-                      style: const TextStyle(
-                          color: Colors.orange, fontSize: 12)),
+                      style:
+                          const TextStyle(color: Colors.orange, fontSize: 12)),
               ],
             ),
           );
@@ -438,14 +425,11 @@ class _StatBar extends StatelessWidget {
             Icon(icon, color: color, size: 20),
             const SizedBox(width: 10),
             Text(label,
-                style: TextStyle(
-                    color: color, fontWeight: FontWeight.w500)),
+                style: TextStyle(color: color, fontWeight: FontWeight.w500)),
           ]),
           Text(value,
               style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18)),
+                  color: color, fontWeight: FontWeight.bold, fontSize: 18)),
         ],
       ),
     );
