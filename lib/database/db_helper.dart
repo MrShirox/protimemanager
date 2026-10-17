@@ -318,5 +318,3 @@ class DBHelper {
     return db.delete('medications', where: 'id = ?', whereArgs: [id]);
   }
 }
-    if (startTime != null) map['startTime'] = startTime;
-    if (jour != null) map['jour'] = jour;

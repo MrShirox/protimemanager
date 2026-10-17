@@ -39,7 +39,7 @@ class ProTimeManagerApp extends StatelessWidget {
           },
         ),
         ChangeNotifierProvider(create: (_) => ConstantesProvider()),
-        ChangeNotifierProvider(create: (_) => MedicationsProvider()),
+        ChangeNotifierProvider(lazy: false, create: (_) => MedicationsProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
