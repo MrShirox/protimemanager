@@ -74,15 +74,107 @@ class Constante {
     );
   }
 
-  // Export rapide en format message
+  // Export rapide en format message : sections dans l'ordre du formulaire,
+  // FAST résumé (OK si tout est OK, sinon uniquement ce qui ne l'est pas).
   String toMessage() {
-    final buffer = StringBuffer();
-    buffer.writeln('📋 $titre');
-    buffer.writeln('─────────────────');
-    for (final champ in champs) {
-      buffer.writeln('${champ.label} : ${champ.valeur}');
+    String? value(String label) {
+      for (final c in champs) {
+        if (c.label == label && c.valeur.trim().isNotEmpty) return c.valeur;
+      }
+      return null;
     }
-    return buffer.toString().trim();
+
+    final known = constanteSections.values.expand((v) => v).toSet();
+    final sections = <(String, List<String>)>[];
+
+    final cardiaque = <String>[
+      if (value('TA Bras gauche') case final v?) 'TA bras gauche : $v',
+      if (value('TA Bras droit') case final v?) 'TA bras droit : $v',
+    ];
+    final rythme = value('Rythme');
+    final perception = value('Perception');
+    if (value('Pouls') case final pouls?) {
+      final details = [
+        if (rythme != null) rythme.toLowerCase(),
+        if (perception != null) perception.toLowerCase(),
+      ];
+      cardiaque.add(
+          'Pouls : $pouls${details.isEmpty ? '' : ' (${details.join(', ')})'}');
+    } else {
+      // Sans pouls saisi, n'afficher que les anomalies cochées.
+      if (rythme == 'Irrégulier') cardiaque.add('Rythme : irrégulier');
+      if (perception == 'Mal perçu') cardiaque.add('Pouls mal perçu');
+    }
+    sections.add(('❤️ CARDIAQUE', cardiaque));
+
+    sections.add((
+      '🫁 RESPIRATOIRE',
+      [
+        if (value('SpO2') case final v?) 'SpO2 : $v',
+        if (value('FR') case final v?) 'FR : $v',
+      ]
+    ));
+
+    const fastNames = ['FACE', 'ARM', 'SPEECH', 'TIME'];
+    final fast = {for (final n in fastNames) n: value('FAST $n')};
+    final notOk = [
+      for (final n in fastNames)
+        if (fast[n] != null && fast[n] != 'OK') '$n ${fast[n]}'
+    ];
+    final missing = [
+      for (final n in fastNames)
+        if (fast[n] == null) n
+    ];
+    final String? fastLine;
+    if (missing.length == fastNames.length) {
+      fastLine = null;
+    } else if (notOk.isNotEmpty) {
+      fastLine = 'FAST : ⚠️ ${notOk.join(' · ')}';
+    } else if (missing.isEmpty) {
+      fastLine = 'FAST : OK ✅';
+    } else {
+      fastLine = 'FAST : OK ✅ (non évalué : ${missing.join(', ')})';
+    }
+    sections.add((
+      '🧠 NEURO',
+      [
+        if (fastLine != null) fastLine,
+        if (value('Conscience') case final v?) 'Conscience : $v',
+        if (value('Observations neurologiques') case final v?)
+          'Observations : $v',
+      ]
+    ));
+
+    sections.add((
+      '🌡️ MÉTABOLIQUE',
+      [
+        if (value('Température') case final v?) 'Température : $v',
+        if (value('Glycémie') case final v?) 'Glycémie : $v',
+        if (value('Acétone') case final v?) 'Acétone : $v',
+      ]
+    ));
+
+    sections.add((
+      '📎 AUTRES',
+      [
+        for (final c in champs)
+          if (!known.contains(c.label) && c.valeur.trim().isNotEmpty)
+            '${c.label} : ${c.valeur}',
+      ]
+    ));
+
+    final buffer = StringBuffer('📋 Constantes — $titre');
+    for (final (title, lines) in sections) {
+      if (lines.isEmpty) continue;
+      buffer.write('\n\n$title');
+      for (final line in lines) {
+        buffer.write('\n• $line');
+      }
+    }
+    if (value('Remarques') case final remarques?) {
+      buffer.write('\n\n📝 REMARQUES\n$remarques');
+    }
+    return buffer.toString();
   }
 
   Constante copyWith({

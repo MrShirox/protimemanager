@@ -1,22 +1,87 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/work_root"
     android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:padding="12dp" android:background="#102D35">
-    <TextView android:id="@+id/work_title" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="ProTimeManager" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="18sp" />
-    <TextView android:id="@+id/work_status" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="Ouvre ProTimeManager pour commencer" android:textColor="#FFFFFF" android:textSize="13sp" />
-    <TextView android:id="@+id/work_pause_status" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="Pause déduite du temps travaillé" android:textColor="#FFCC80" android:textSize="12sp" />
-    <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal">
-        <Button android:id="@+id/work_start" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="Démarrer" android:textSize="13sp" />
-        <Button android:id="@+id/work_stop" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="Fin" android:textSize="13sp" />
+    android:orientation="vertical" android:gravity="center_vertical"
+    android:paddingStart="16dp" android:paddingEnd="16dp"
+    android:paddingTop="12dp" android:paddingBottom="12dp"
+    android:background="@drawable/widget_bg">
+
+    <!-- En-tête : état + nom de l'app (ouvre l'application) -->
+    <LinearLayout android:id="@+id/work_header"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:id="@+id/work_dot"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="●" android:textSize="10sp" android:textColor="#90A4AE" />
+        <TextView android:id="@+id/work_state"
+            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:text="ARRÊTÉ" android:textSize="11sp" android:textStyle="bold"
+            android:letterSpacing="0.08" android:textColor="#CCFFFFFF" />
+        <TextView
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="ProTimeManager" android:textSize="11sp" android:textColor="#80FFFFFF" />
     </LinearLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal">
-        <Button android:id="@+id/pause20" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:minWidth="0dp" android:padding="0dp" android:text="20 min" android:textSize="11sp" />
-        <Button android:id="@+id/pause30" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:minWidth="0dp" android:padding="0dp" android:text="30 min" android:textSize="11sp" />
-        <Button android:id="@+id/pause45" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:minWidth="0dp" android:padding="0dp" android:text="45 min" android:textSize="11sp" />
-        <Button android:id="@+id/pause50" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:minWidth="0dp" android:padding="0dp" android:text="50 min" android:textSize="11sp" />
-        <Button android:id="@+id/pause60" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:minWidth="0dp" android:padding="0dp" android:text="1 h" android:textSize="11sp" />
+
+    <!-- Chrono qui défile + bouton principal -->
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <Chronometer android:id="@+id/work_chrono"
+            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:textSize="34sp" android:textColor="#FFFFFF"
+            android:fontFamily="sans-serif-light" android:singleLine="true" />
+        <TextView android:id="@+id/work_start"
+            android:layout_width="wrap_content" android:layout_height="36dp"
+            android:gravity="center" android:paddingStart="16dp" android:paddingEnd="16dp"
+            android:background="@drawable/widget_btn_start"
+            android:text="▶  Démarrer" android:textSize="13sp" android:textStyle="bold"
+            android:textColor="#FFFFFF" />
+        <TextView android:id="@+id/work_stop"
+            android:layout_width="wrap_content" android:layout_height="36dp"
+            android:gravity="center" android:paddingStart="16dp" android:paddingEnd="16dp"
+            android:background="@drawable/widget_btn_stop"
+            android:text="■  Fin" android:textSize="13sp" android:textStyle="bold"
+            android:textColor="#FFFFFF" android:visibility="gone" />
+    </LinearLayout>
+
+    <TextView android:id="@+id/work_detail"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="Appuie sur Démarrer pour lancer la journée"
+        android:textSize="12sp" android:textColor="#B3FFFFFF"
+        android:singleLine="true" android:ellipsize="end" />
+
+    <TextView android:id="@+id/work_error"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textSize="12sp" android:textColor="#FFB74D"
+        android:maxLines="2" android:ellipsize="end" android:visibility="gone" />
+
+    <!-- Pauses déduites -->
+    <LinearLayout android:id="@+id/work_pauses"
+        android:layout_width="match_parent" android:layout_height="30dp"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal" android:gravity="center_vertical"
+        android:visibility="gone">
+        <TextView
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginEnd="6dp"
+            android:text="Pause" android:textSize="11sp" android:textColor="#99FFFFFF" />
+        <TextView android:id="@+id/pause20" android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:layout_marginEnd="4dp" android:gravity="center"
+            android:background="@drawable/widget_chip" android:text="20" android:textSize="12sp" android:textColor="#FFFFFF" />
+        <TextView android:id="@+id/pause30" android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:layout_marginEnd="4dp" android:gravity="center"
+            android:background="@drawable/widget_chip" android:text="30" android:textSize="12sp" android:textColor="#FFFFFF" />
+        <TextView android:id="@+id/pause45" android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:layout_marginEnd="4dp" android:gravity="center"
+            android:background="@drawable/widget_chip" android:text="45" android:textSize="12sp" android:textColor="#FFFFFF" />
+        <TextView android:id="@+id/pause50" android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:layout_marginEnd="4dp" android:gravity="center"
+            android:background="@drawable/widget_chip" android:text="50" android:textSize="12sp" android:textColor="#FFFFFF" />
+        <TextView android:id="@+id/pause60" android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:gravity="center"
+            android:background="@drawable/widget_chip" android:text="1 h" android:textSize="12sp" android:textColor="#FFFFFF" />
     </LinearLayout>
 </LinearLayout>

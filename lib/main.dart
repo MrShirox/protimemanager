@@ -11,16 +11,12 @@ import 'providers/medications_provider.dart';
 import 'database/db_helper.dart';
 import 'services/work_sessions.dart';
 import 'services/work_home_widget.dart';
-import 'package:home_widget/home_widget.dart';
 import 'screens/home/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('fr_FR', null);
   await DBHelper.instance.database;
-  if (supportsWorkWidget) {
-    await HomeWidget.registerInteractivityCallback(workWidgetAction);
-  }
   runApp(const ProTimeManagerApp());
 }
 
