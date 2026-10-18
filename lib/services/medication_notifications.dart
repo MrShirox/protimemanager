@@ -36,8 +36,26 @@ class MedicationNotifications {
       ));
       _initialized = true;
     }
-    final zone = await FlutterTimezone.getLocalTimezone();
-    tz.setLocalLocation(tz.getLocation(zone.identifier));
+    tz.setLocalLocation(await _localLocation());
+  }
+
+  /// Some phones report a zone name missing from the timezone database
+  /// (e.g. "GMT+02:00"); fall back instead of failing every reminder.
+  Future<tz.Location> _localLocation() async {
+    try {
+      final zone = await FlutterTimezone.getLocalTimezone();
+      return tz.getLocation(zone.identifier);
+    } catch (_) {
+      final offset = DateTime.now().timeZoneOffset;
+      final paris = tz.getLocation('Europe/Paris');
+      if (tz.TZDateTime.now(paris).timeZoneOffset == offset) return paris;
+      for (final location in tz.timeZoneDatabase.locations.values) {
+        if (tz.TZDateTime.now(location).timeZoneOffset == offset) {
+          return location;
+        }
+      }
+      return tz.UTC;
+    }
   }
 
   Future<bool> _permission(bool request) async {

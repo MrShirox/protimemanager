@@ -52,8 +52,9 @@ class WorkSessions extends ChangeNotifier with WidgetsBindingObserver {
       final end = row['endTime'] == null
           ? null
           : DateTime.parse(row['endTime'] as String).toLocal();
-      final pauses =
-          pauseRows.where((p) => p['sessionId'] == row['id']).map((p) {
+      final pauses = pauseRows
+          .where((p) => p['sessionId'] == row['id'] && p['startTime'] != null)
+          .map((p) {
         return PauseEntry(
             start: DateTime.parse(p['startTime'] as String).toLocal(),
             scheduled: p['scheduled'] == 1,
@@ -62,7 +63,7 @@ class WorkSessions extends ChangeNotifier with WidgetsBindingObserver {
                 ? null
                 : DateTime.parse(p['endTime'] as String).toLocal());
       }).toList()
-            ..sort((a, b) => a.start.compareTo(b.start));
+        ..sort((a, b) => a.start.compareTo(b.start));
       // Preserve old manually entered totals that had no pause intervals.
       // Their actual position is unknown; place them at the beginning.
       final oldMinutes = row['pauseMinutes'] as int? ?? 0;
@@ -86,9 +87,9 @@ class WorkSessions extends ChangeNotifier with WidgetsBindingObserver {
       final db = await _database();
       _sessions = await db.transaction((txn) => _read(txn));
       loadError = null;
-    } catch (_) {
+    } catch (e) {
       loadError =
-          'Impossible de charger les horaires. Réessaie avant de démarrer.';
+          'Impossible de charger les horaires. Réessaie avant de démarrer.\nDétail : ${errorDetail(e)}';
     } finally {
       loading = false;
       _notify();

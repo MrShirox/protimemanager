@@ -6,6 +6,7 @@ import '../../models/medication.dart';
 import '../../providers/medications_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/expiry_month_picker.dart';
+import '../../database/db_helper.dart';
 
 class MedicationsScreen extends StatelessWidget {
   const MedicationsScreen({super.key});
@@ -225,12 +226,12 @@ class _MedicationFormState extends State<_MedicationForm> {
         setState(() => _saving = false);
         Navigator.pop(context);
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() {
           _saving = false;
           _error =
-              'Enregistrement impossible. Tes saisies sont conservées, réessaie.';
+              'Enregistrement impossible. Tes saisies sont conservées, réessaie.\nDétail : ${errorDetail(e)}';
         });
       }
     }

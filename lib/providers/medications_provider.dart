@@ -44,8 +44,9 @@ class MedicationsProvider extends ChangeNotifier with WidgetsBindingObserver {
       _items = rows.map(Medication.fromMap).toList();
       _sort();
       await _syncNotifications();
-    } catch (_) {
-      error = 'Impossible de charger les médicaments. Réessaie.';
+    } catch (e) {
+      error =
+          'Impossible de charger les médicaments. Réessaie.\nDétail : ${errorDetail(e)}';
     } finally {
       isLoading = false;
       _notify();
@@ -57,9 +58,10 @@ class MedicationsProvider extends ChangeNotifier with WidgetsBindingObserver {
     try {
       notificationWarning = await _notifications.synchronize(_items,
           requestPermission: request, changedId: changedId);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Medication reminders failed: $e');
       notificationWarning =
-          'Les données sont sauvegardées, mais les rappels n’ont pas pu être programmés. Appuie sur Réessayer.';
+          'Les données sont sauvegardées, mais les rappels n’ont pas pu être programmés. Appuie sur Réessayer.\nDétail : ${errorDetail(e)}';
     }
   }
 

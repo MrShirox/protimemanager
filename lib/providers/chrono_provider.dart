@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/chrono_entry.dart';
 import '../services/work_sessions.dart';
+import '../database/db_helper.dart';
 
 class ChronoProvider extends ChangeNotifier {
   final WorkSessions store;
@@ -36,9 +37,9 @@ class ChronoProvider extends ChangeNotifier {
       await operation();
     } on WorkTimeException catch (e) {
       error = e.message;
-    } catch (_) {
+    } catch (e) {
       error =
-          'Enregistrement impossible. Réessaie : les horaires précédents sont conservés.';
+          'Enregistrement impossible. Réessaie : les horaires précédents sont conservés.\nDétail : ${errorDetail(e)}';
     }
     _changed();
   }

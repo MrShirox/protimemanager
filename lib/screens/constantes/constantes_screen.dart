@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../providers/constantes_provider.dart';
 import '../../models/constante.dart';
 import '../../theme/app_theme.dart';
+import '../../database/db_helper.dart';
 
 class ConstantesScreen extends StatelessWidget {
   const ConstantesScreen({super.key});
@@ -448,11 +449,12 @@ class _ConstanteFormState extends State<_ConstanteForm> {
             .update(widget.existing!.copyWith(champs: champs, updatedAt: now));
       }
       if (mounted) Navigator.pop(context);
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() {
           _saving = false;
-          _error = 'Enregistrement impossible. Réessaie.';
+          _error =
+              'Enregistrement impossible. Réessaie.\nDétail : ${errorDetail(e)}';
         });
       }
     }

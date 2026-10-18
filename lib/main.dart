@@ -16,7 +16,12 @@ import 'screens/home/home_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('fr_FR', null);
-  await DBHelper.instance.database;
+  try {
+    await DBHelper.instance.database;
+  } catch (e) {
+    // Start anyway: each screen shows the reason and can retry the opening.
+    debugPrint('Database opening failed: $e');
+  }
   runApp(const ProTimeManagerApp());
 }
 

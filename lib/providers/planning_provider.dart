@@ -92,8 +92,9 @@ class PlanningProvider extends ChangeNotifier {
         _shiftTypes[row['jour'] as String] = row['type'] as String;
       }
       error = null;
-    } catch (_) {
-      error = 'Impossible de charger les couleurs du planning.';
+    } catch (e) {
+      error =
+          'Impossible de charger les couleurs du planning.\nDétail : ${errorDetail(e)}';
     }
     _changed();
   }
@@ -103,8 +104,9 @@ class PlanningProvider extends ChangeNotifier {
       await _db.upsertShiftType(dayKey(date), type.name);
       _shiftTypes[dayKey(date)] = type.name;
       error = null;
-    } catch (_) {
-      error = 'Impossible d’enregistrer le type de journée.';
+    } catch (e) {
+      error =
+          'Impossible d’enregistrer le type de journée.\nDétail : ${errorDetail(e)}';
     }
     _changed();
   }

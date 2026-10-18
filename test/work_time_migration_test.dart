@@ -125,4 +125,56 @@ void main() {
       }
     });
   }
+
+  test('a current-version database left incomplete is repaired on open',
+      () async {
+    final dir = await Directory.systemTemp.createTemp('protime-repair-');
+    final path = '${dir.path}/broken.db';
+    var db = await databaseFactoryFfi.openDatabase(path,
+        options: OpenDatabaseOptions(
+          version: 8,
+          onCreate: (db, _) async {
+            // Incompatible old layout: no "jour" column.
+            await db.execute(
+                'CREATE TABLE shifts (id INTEGER PRIMARY KEY, date TEXT, type TEXT)');
+            await db.insert('shifts', {'date': '2026-10-12', 'type': 'nuit'});
+            await db.execute(
+                'CREATE TABLE chrono_sessions (id INTEGER PRIMARY KEY, jour TEXT, startTime TEXT, endTime TEXT)');
+            await db.insert('chrono_sessions', {
+              'id': 1,
+              'jour': '2026-10-12',
+              'startTime': '2026-10-12T08:00:00',
+              'endTime': '2026-10-12T12:00:00'
+            });
+            await db.execute(
+                'CREATE TABLE pause_plages (id INTEGER PRIMARY KEY, sessionId INTEGER, jour TEXT, startMinutes INTEGER, endMinutes INTEGER)');
+            await db.insert('pause_plages', {
+              'sessionId': 1,
+              'jour': '2026-10-12',
+              'startMinutes': 600,
+              'endMinutes': 630
+            });
+          },
+        ));
+    await db.close();
+    db = await DBHelper.instance.openAt(path, factory: databaseFactoryFfi);
+    final store = WorkSessions(
+        database: () async => db,
+        clock: () => DateTime(2026, 10, 15),
+        startTicker: false);
+    try {
+      await store.ready;
+      expect(store.loadError, isNull);
+      expect(store.dayMinutes(DateTime(2026, 10, 12)), 210);
+      await db.insert('shifts', {'jour': '2026-10-13', 'type': 'nuit'});
+      await db.insert('medications', {'nom': 'Doliprane'});
+      await db.insert('constantes',
+          {'titre': 'Fiche', 'champs': '[]', 'createdAt': '2026-10-15'});
+      expect((await db.query('shifts_ancien')).single['date'], '2026-10-12');
+    } finally {
+      store.dispose();
+      await db.close();
+      await dir.delete(recursive: true);
+    }
+  });
 }
