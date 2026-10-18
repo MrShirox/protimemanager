@@ -192,10 +192,12 @@ class _HomeTab extends StatelessWidget {
               child: Row(children: [
                 const Icon(Icons.trending_up, color: Colors.orange),
                 const SizedBox(width: 10),
-                Text(
-                  'Heures supp : +${_fmt(suppMin)}',
-                  style: const TextStyle(
-                      color: Colors.orange, fontWeight: FontWeight.bold),
+                Expanded(
+                  child: Text(
+                    'Heures supp : +${_fmt(suppMin)}',
+                    style: const TextStyle(
+                        color: Colors.orange, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ]),
             ),
@@ -316,7 +318,14 @@ class _ShortcutCard extends StatelessWidget {
               child: Icon(icon, color: color),
             ),
             const SizedBox(width: 10),
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(label,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+              ),
+            ),
           ]),
         ),
       ),
