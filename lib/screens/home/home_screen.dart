@@ -7,6 +7,7 @@ import '../../providers/theme_provider.dart';
 import '../../providers/chrono_provider.dart';
 import '../../providers/planning_provider.dart';
 import '../../widgets/bottom_nav.dart';
+import '../../widgets/work_controls.dart';
 import '../../theme/app_theme.dart';
 import '../planning/planning_screen.dart';
 import '../chrono/chrono_screen.dart';
@@ -24,6 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   late Timer _clockTimer;
   String _currentTime = '';
+  void selectTab(int index) => setState(() => _currentIndex = index);
 
   @override
   void initState() {
@@ -35,8 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _updateTime() {
     setState(() {
-      _currentTime =
-          DateFormat('HH:mm:ss', 'fr_FR').format(DateTime.now());
+      _currentTime = DateFormat('HH:mm:ss', 'fr_FR').format(DateTime.now());
     });
   }
 
@@ -48,12 +49,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildScreen() {
     switch (_currentIndex) {
-      case 0: return const _HomeTab();
-      case 1: return const PlanningScreen();
-      case 2: return const ChronoScreen();
-      case 3: return const ConstantesScreen();
-      case 4: return const MedicationsScreen();
-      default: return const _HomeTab();
+      case 0:
+        return const _HomeTab();
+      case 1:
+        return const PlanningScreen();
+      case 2:
+        return const ChronoScreen();
+      case 3:
+        return const ConstantesScreen();
+      case 4:
+        return const MedicationsScreen();
+      default:
+        return const _HomeTab();
     }
   }
 
@@ -99,14 +106,14 @@ class _HomeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chrono   = context.watch<ChronoProvider>();
+    final chrono = context.watch<ChronoProvider>();
     final planning = context.watch<PlanningProvider>();
-    final monday   = planning.currentWeekMonday;
-    final theme    = Theme.of(context);
+    final monday = planning.currentWeekMonday;
+    final theme = Theme.of(context);
 
     const int targetMin = 35 * 60;
-    final int todayMin  = chrono.todayWorkedMinutes;
-    final int weekMin   = planning.weeklyWorkedMinutes(monday);
+    final int todayMin = chrono.todayWorkedMinutes;
+    final int weekMin = planning.weeklyWorkedMinutes(monday);
     final double progress = (weekMin / targetMin).clamp(0.0, 1.0);
     final int suppMin = (weekMin - targetMin).clamp(0, 999 * 60);
 
@@ -117,11 +124,14 @@ class _HomeTab extends StatelessWidget {
         children: [
           Text(
             DateFormat('EEEE d MMMM yyyy', 'fr_FR').format(DateTime.now()),
-            style: theme.textTheme.titleMedium
-                ?.copyWith(color: Colors.grey),
+            style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey),
           ),
           const SizedBox(height: 24),
 
+          const Card(
+              child:
+                  Padding(padding: EdgeInsets.all(16), child: WorkControls())),
+          const SizedBox(height: 16),
           // ── Cartes stats ──
           Row(children: [
             Expanded(
@@ -154,12 +164,9 @@ class _HomeTab extends StatelessWidget {
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 18,
-              backgroundColor:
-                  theme.colorScheme.surfaceContainerHighest,
+              backgroundColor: theme.colorScheme.surfaceContainerHighest,
               valueColor: AlwaysStoppedAnimation<Color>(
-                weekMin >= targetMin
-                    ? Colors.orange
-                    : AppTheme.primaryColor,
+                weekMin >= targetMin ? Colors.orange : AppTheme.primaryColor,
               ),
             ),
           ),
@@ -169,21 +176,18 @@ class _HomeTab extends StatelessWidget {
             children: [
               Text(_fmt(weekMin),
                   style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text('35h00',
-                  style: TextStyle(color: Colors.grey.shade500)),
+              Text('35h00', style: TextStyle(color: Colors.grey.shade500)),
             ],
           ),
 
           if (suppMin > 0) ...[
             const SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.orange.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                    color: Colors.orange.withValues(alpha: 0.4)),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
               ),
               child: Row(children: [
                 const Icon(Icons.trending_up, color: Colors.orange),
@@ -191,8 +195,7 @@ class _HomeTab extends StatelessWidget {
                 Text(
                   'Heures supp : +${_fmt(suppMin)}',
                   style: const TextStyle(
-                      color: Colors.orange,
-                      fontWeight: FontWeight.bold),
+                      color: Colors.orange, fontWeight: FontWeight.bold),
                 ),
               ]),
             ),
@@ -246,7 +249,7 @@ class _HomeTab extends StatelessWidget {
 
   void _navigate(BuildContext context, int index) {
     final state = context.findAncestorStateOfType<_HomeScreenState>();
-    state?.setState(() => state._currentIndex = index);
+    state?.selectTab(index);
   }
 }
 
@@ -274,14 +277,11 @@ class _StatCard extends StatelessWidget {
             Icon(icon, color: color, size: 28),
             const SizedBox(height: 8),
             Text(label,
-                style: TextStyle(
-                    color: Colors.grey.shade500, fontSize: 12)),
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
             const SizedBox(height: 4),
             Text(value,
                 style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: color)),
+                    fontSize: 22, fontWeight: FontWeight.bold, color: color)),
           ],
         ),
       ),
@@ -316,9 +316,7 @@ class _ShortcutCard extends StatelessWidget {
               child: Icon(icon, color: color),
             ),
             const SizedBox(width: 10),
-            Text(label,
-                style:
-                    const TextStyle(fontWeight: FontWeight.w600)),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
           ]),
         ),
       ),

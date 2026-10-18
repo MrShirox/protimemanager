@@ -86,6 +86,9 @@ class _ConstanteForm extends StatefulWidget {
 class _ConstanteFormState extends State<_ConstanteForm> {
   late TextEditingController taGSys, taGDia, taDSys, taDDia;
   late TextEditingController pouls, temp, spo2, glyc, note;
+  late TextEditingController fr, acetone, conscience, neuro;
+  bool _saving = false;
+  String? _error;
   late bool rythmeRegulier, bienPercu;
 
   final List<FocusNode> _fNodes = List.generate(9, (_) => FocusNode());
@@ -93,12 +96,16 @@ class _ConstanteFormState extends State<_ConstanteForm> {
   String _get(String label) {
     if (widget.existing == null) return '';
     try {
-      return widget.existing!.champs
-          .firstWhere((c) => c.label == label)
-          .valeur
-          .replaceAll(' bpm', '')
-          .replaceAll(' °C', '')
-          .replaceAll(' %', '');
+      final value =
+          widget.existing!.champs.firstWhere((c) => c.label == label).valeur;
+      return switch (label) {
+        'Pouls' => value.replaceAll(' bpm', ''),
+        'Température' => value.replaceAll(' °C', ''),
+        'SpO2' => value.replaceAll(' %', ''),
+        'FR' => value.replaceAll(' /min', ''),
+        'Glycémie' => value.replaceFirst(RegExp(r' mmol/L.*$'), ''),
+        _ => value,
+      };
     } catch (_) {
       return '';
     }
@@ -111,25 +118,48 @@ class _ConstanteFormState extends State<_ConstanteForm> {
     final taG = _get('TA Bras gauche').replaceAll(' mmHg', '').split('/');
     final taD = _get('TA Bras droit').replaceAll(' mmHg', '').split('/');
 
-    taGSys = TextEditingController(text: taG.length > 0 ? taG[0] : '');
+    taGSys = TextEditingController(text: taG.isNotEmpty ? taG[0] : '');
     taGDia = TextEditingController(text: taG.length > 1 ? taG[1] : '');
-    taDSys = TextEditingController(text: taD.length > 0 ? taD[0] : '');
+    taDSys = TextEditingController(text: taD.isNotEmpty ? taD[0] : '');
     taDDia = TextEditingController(text: taD.length > 1 ? taD[1] : '');
-    pouls  = TextEditingController(text: _get('Pouls').isEmpty ? '' : _get('Pouls'));
-    temp   = TextEditingController(text: _get('Température').isEmpty ? '' : _get('Température'));
-    spo2   = TextEditingController(text: _get('SpO2').isEmpty ? '' : _get('SpO2'));
-    glyc   = TextEditingController(text: _get('Glycémie'));
-    note   = TextEditingController(text: _get('Remarques'));
+    pouls =
+        TextEditingController(text: _get('Pouls').isEmpty ? '' : _get('Pouls'));
+    temp = TextEditingController(
+        text: _get('Température').isEmpty ? '' : _get('Température'));
+    spo2 =
+        TextEditingController(text: _get('SpO2').isEmpty ? '' : _get('SpO2'));
+    glyc = TextEditingController(text: _get('Glycémie'));
+    note = TextEditingController(text: _get('Remarques'));
+    fr = TextEditingController(text: _get('FR'));
+    acetone = TextEditingController(text: _get('Acétone'));
+    conscience = TextEditingController(text: _get('Conscience'));
+    neuro = TextEditingController(text: _get('Observations neurologiques'));
     rythmeRegulier = _get('Rythme') != 'Irrégulier';
-    bienPercu      = _get('Perception') != 'Mal perçu';
+    bienPercu = _get('Perception') != 'Mal perçu';
   }
 
   @override
   void dispose() {
-    for (final c in [taGSys,taGDia,taDSys,taDDia,pouls,temp,spo2,glyc,note]) {
+    for (final c in [
+      taGSys,
+      taGDia,
+      taDSys,
+      taDDia,
+      pouls,
+      temp,
+      spo2,
+      glyc,
+      note,
+      fr,
+      acetone,
+      conscience,
+      neuro
+    ]) {
       c.dispose();
     }
-    for (final f in _fNodes) f.dispose();
+    for (final f in _fNodes) {
+      f.dispose();
+    }
     super.dispose();
   }
 
@@ -181,14 +211,18 @@ class _ConstanteFormState extends State<_ConstanteForm> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              widget.existing == null ? 'Nouvelle fiche constantes' : 'Modifier la fiche',
+              widget.existing == null
+                  ? 'Nouvelle fiche constantes'
+                  : 'Modifier la fiche',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
 
             // ── Tension ──
-            _section('Tension artérielle'),
-            const Text('Bras gauche', style: TextStyle(color: Colors.grey, fontSize: 13)),
+            _section('Cardiaque'),
+            const Text('Tension artérielle'),
+            const Text('Bras gauche',
+                style: TextStyle(color: Colors.grey, fontSize: 13)),
             const SizedBox(height: 4),
             Row(children: [
               Expanded(child: _numField(taGSys, 'ex : 120', 0)),
@@ -199,11 +233,13 @@ class _ConstanteFormState extends State<_ConstanteForm> {
               Expanded(child: _numField(taGDia, 'ex : 80', 1)),
               const Padding(
                 padding: EdgeInsets.only(left: 6),
-                child: Text('mmHg', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                child: Text('mmHg',
+                    style: TextStyle(color: Colors.grey, fontSize: 13)),
               ),
             ]),
             const SizedBox(height: 10),
-            const Text('Bras droit', style: TextStyle(color: Colors.grey, fontSize: 13)),
+            const Text('Bras droit',
+                style: TextStyle(color: Colors.grey, fontSize: 13)),
             const SizedBox(height: 4),
             Row(children: [
               Expanded(child: _numField(taDSys, 'ex : 120', 2)),
@@ -214,14 +250,16 @@ class _ConstanteFormState extends State<_ConstanteForm> {
               Expanded(child: _numField(taDDia, 'ex : 80', 3)),
               const Padding(
                 padding: EdgeInsets.only(left: 6),
-                child: Text('mmHg', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                child: Text('mmHg',
+                    style: TextStyle(color: Colors.grey, fontSize: 13)),
               ),
             ]),
             const Divider(height: 24),
 
             // ── Pouls ──
             _section('Pouls'),
-            const Text('Fréquence (bpm)', style: TextStyle(color: Colors.grey, fontSize: 13)),
+            const Text('Fréquence (bpm)',
+                style: TextStyle(color: Colors.grey, fontSize: 13)),
             const SizedBox(height: 4),
             _numField(pouls, 'ex : 72', 4),
             const SizedBox(height: 8),
@@ -236,21 +274,43 @@ class _ConstanteFormState extends State<_ConstanteForm> {
             CheckboxListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-              title: const Text('Bien perçu  (décoché = mal perçu / imperceptible)'),
+              title: const Text(
+                  'Bien perçu  (décoché = mal perçu / imperceptible)'),
               value: bienPercu,
               activeColor: AppTheme.primaryColor,
               onChanged: (v) => setState(() => bienPercu = v ?? true),
             ),
             const Divider(height: 24),
 
-            // ── Température ──
-            _section('Température (°C)'),
-            _numField(temp, 'ex : 37.2', 5, decimal: true),
-            const Divider(height: 24),
-
             // ── SpO2 ──
-            _section('Saturation SpO2 (%)'),
+            _section('Respiratoire'),
+            const Text('Saturation SpO2 (%)'),
             _numField(spo2, 'ex : 98', 6),
+            TextField(
+                controller: fr,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                    labelText: 'FR — fréquence respiratoire (/min)')),
+            const Divider(height: 24),
+            _section('Neuro'),
+            TextField(
+                controller: conscience,
+                decoration: const InputDecoration(labelText: 'Conscience')),
+            TextField(
+                controller: neuro,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                    labelText: 'Observations neurologiques')),
+            const Divider(height: 24),
+            _section('Métabolique / autres'),
+            const Text('Température (°C)'),
+            _numField(temp, 'ex : 37.2', 5, decimal: true),
+            TextField(
+                controller: acetone,
+                decoration: const InputDecoration(
+                    labelText: 'Acétone',
+                    hintText: 'Résultat et unité ou lecture de la bandelette')),
             const Divider(height: 24),
 
             // ── Glycémie ──
@@ -258,7 +318,8 @@ class _ConstanteFormState extends State<_ConstanteForm> {
             TextField(
               controller: glyc,
               focusNode: _fNodes[7],
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
               ],
@@ -267,7 +328,8 @@ class _ConstanteFormState extends State<_ConstanteForm> {
               decoration: const InputDecoration(
                 hintText: 'ex : 5.4 mmol/L',
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                contentPadding:
+                    EdgeInsets.symmetric(vertical: 10, horizontal: 4),
               ),
             ),
             const Divider(height: 24),
@@ -282,17 +344,21 @@ class _ConstanteFormState extends State<_ConstanteForm> {
               decoration: const InputDecoration(
                 hintText: 'Remarques...',
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                contentPadding:
+                    EdgeInsets.symmetric(vertical: 10, horizontal: 4),
               ),
             ),
             const SizedBox(height: 24),
 
+            if (_error != null)
+              Text(_error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error)),
             // ── Actions ──
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: _saving ? null : () => Navigator.pop(context),
                   child: const Text('ANNULER'),
                 ),
                 const SizedBox(width: 8),
@@ -301,8 +367,12 @@ class _ConstanteFormState extends State<_ConstanteForm> {
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
                   ),
-                  onPressed: _save,
-                  child: Text(widget.existing == null ? 'CRÉER' : 'ENREGISTRER'),
+                  onPressed: _saving ? null : _save,
+                  child: Text(_saving
+                      ? 'ENREGISTREMENT…'
+                      : widget.existing == null
+                          ? 'CRÉER'
+                          : 'ENREGISTRER'),
                 ),
               ],
             ),
@@ -312,12 +382,27 @@ class _ConstanteFormState extends State<_ConstanteForm> {
     );
   }
 
-  void _save() {
+  Future<void> _save() async {
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
     final now = DateTime.now();
     // Titre = heure d'enregistrement
     final titre = DateFormat('HH:mm  –  dd/MM/yyyy', 'fr_FR').format(now);
 
     final champs = [
+      for (final c in widget.existing?.champs ?? <ConstanteChamp>[])
+        if (!constanteSections.values.expand((v) => v).contains(c.label)) c,
+      if (fr.text.trim().isNotEmpty)
+        ConstanteChamp(label: 'FR', valeur: '${fr.text.trim()} /min'),
+      if (acetone.text.trim().isNotEmpty)
+        ConstanteChamp(label: 'Acétone', valeur: acetone.text.trim()),
+      if (conscience.text.trim().isNotEmpty)
+        ConstanteChamp(label: 'Conscience', valeur: conscience.text.trim()),
+      if (neuro.text.trim().isNotEmpty)
+        ConstanteChamp(
+            label: 'Observations neurologiques', valeur: neuro.text.trim()),
       if (taGSys.text.isNotEmpty || taGDia.text.isNotEmpty)
         ConstanteChamp(
             label: 'TA Bras gauche',
@@ -329,11 +414,9 @@ class _ConstanteFormState extends State<_ConstanteForm> {
       if (pouls.text.isNotEmpty)
         ConstanteChamp(label: 'Pouls', valeur: '${pouls.text} bpm'),
       ConstanteChamp(
-          label: 'Rythme',
-          valeur: rythmeRegulier ? 'Régulier' : 'Irrégulier'),
+          label: 'Rythme', valeur: rythmeRegulier ? 'Régulier' : 'Irrégulier'),
       ConstanteChamp(
-          label: 'Perception',
-          valeur: bienPercu ? 'Bien perçu' : 'Mal perçu'),
+          label: 'Perception', valeur: bienPercu ? 'Bien perçu' : 'Mal perçu'),
       if (temp.text.isNotEmpty)
         ConstanteChamp(label: 'Température', valeur: '${temp.text} °C'),
       if (spo2.text.isNotEmpty)
@@ -347,12 +430,22 @@ class _ConstanteFormState extends State<_ConstanteForm> {
     ];
 
     final prov = context.read<ConstantesProvider>();
-    if (widget.existing == null) {
-      prov.add(Constante(titre: titre, champs: champs));
-    } else {
-      prov.update(widget.existing!.copyWith(champs: champs, updatedAt: now));
+    try {
+      if (widget.existing == null) {
+        await prov.add(Constante(titre: titre, champs: champs));
+      } else {
+        await prov
+            .update(widget.existing!.copyWith(champs: champs, updatedAt: now));
+      }
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = 'Enregistrement impossible. Réessaie.';
+        });
+      }
     }
-    Navigator.pop(context);
   }
 }
 
@@ -382,9 +475,10 @@ class _ConstanteCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(constante.titre,
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(fontWeight: FontWeight.bold)),
+                Expanded(
+                    child: Text(constante.titre,
+                        style: theme.textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.bold))),
                 Row(children: [
                   IconButton(
                       icon: const Icon(Icons.share, size: 20),
@@ -393,28 +487,47 @@ class _ConstanteCard extends StatelessWidget {
                       icon: const Icon(Icons.edit, size: 20),
                       onPressed: onEdit),
                   IconButton(
-                      icon: const Icon(Icons.delete,
-                          size: 20, color: Colors.red),
+                      icon:
+                          const Icon(Icons.delete, size: 20, color: Colors.red),
                       onPressed: onDelete),
                 ]),
               ],
             ),
             const Divider(height: 12),
-            ...constante.champs.map((c) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(children: [
-                    SizedBox(
-                      width: 130,
-                      child: Text(c.label,
-                          style: const TextStyle(
-                              color: Colors.grey, fontSize: 13)),
-                    ),
-                    Expanded(
-                      child: Text(c.valeur,
-                          style: const TextStyle(fontWeight: FontWeight.w500)),
-                    ),
-                  ]),
-                )),
+            for (final section in {
+              ...constanteSections,
+              'Autres': constante.champs
+                  .map((c) => c.label)
+                  .where((label) => !constanteSections.values
+                      .expand((v) => v)
+                      .contains(label))
+                  .toList()
+            }.entries)
+              if (constante.champs
+                  .any((c) => section.value.contains(c.label))) ...[
+                Padding(
+                    padding: const EdgeInsets.only(top: 10, bottom: 4),
+                    child: Text(section.key,
+                        style: const TextStyle(fontWeight: FontWeight.bold))),
+                ...constante.champs
+                    .where((c) => section.value.contains(c.label))
+                    .map((c) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(children: [
+                            SizedBox(
+                              width: 130,
+                              child: Text(c.label,
+                                  style: const TextStyle(
+                                      color: Colors.grey, fontSize: 13)),
+                            ),
+                            Expanded(
+                              child: Text(c.valeur,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w500)),
+                            ),
+                          ]),
+                        )),
+              ],
           ],
         ),
       ),

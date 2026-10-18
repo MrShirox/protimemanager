@@ -16,6 +16,12 @@ Les sessions du jour et le total du jour montrent seulement les portions de ce
 jour. Les pauses multiples sont horodatées avec une date complète ; une pause
 qui traverse minuit est répartie de la même façon que le travail.
 
+Les commandes de début/fin de journée et les pauses de 20, 30, 45, 50 ou 60 minutes
+sont disponibles dans le chrono et l'accueil. La fin prévue de pause est enregistrée :
+le travail reprend automatiquement dans les calculs même après fermeture. Une reprise
+anticipée ou un arrêt pendant la pause ne déduit que la durée écoulée. Le widget
+Android propose les mêmes commandes (voir [les détails](updates-october-2026.md)).
+
 La fenêtre du jour affiche les portions quotidiennes. « Modifier la session »
 ouvre les dates et horaires de la session complète. Corriger 09:00 en 08:00 à
 09:00 affiche immédiatement 1 h de travail au chrono. Une correction, un ajout
@@ -44,6 +50,8 @@ Pour les anciennes sessions qui ne contiennent qu'un total de pause sans plages,
 le total est conservé en reconstituant une pause au début ; son emplacement exact
 doit être vérifié dans l'éditeur. Les anciennes heures ambiguës lors d'un changement
 d'heure ne peuvent pas être reconstruites avec certitude sans l'information de fuseau.
+
+La migration v7 ajoute le marqueur de pause programmée, sans modifier les anciennes pauses.
 
 ## Vérification
 

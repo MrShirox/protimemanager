@@ -8,7 +8,10 @@ String dayKey(DateTime value) =>
 class PauseEntry {
   final DateTime start;
   final DateTime? end;
-  const PauseEntry({required this.start, this.end});
+  final bool scheduled;
+  const PauseEntry({required this.start, this.end, this.scheduled = false});
+  bool activeAt(DateTime now) =>
+      !start.isAfter(now) && (end == null || end!.isAfter(now));
   int get durationMinutes => end == null ? 0 : end!.difference(start).inMinutes;
 }
 
@@ -29,7 +32,9 @@ class ChronoSession {
       : pauses = List.unmodifiable(pauses);
 
   bool get isRunning => endTime == null;
-  bool get isPaused => isRunning && pauses.any((p) => p.end == null);
+  bool get isPaused => isPausedAt(DateTime.now());
+  bool isPausedAt(DateTime now) =>
+      isRunning && pauses.any((p) => p.activeAt(now));
   int get totalPauseMinutes => pauses
       .fold<Duration>(Duration.zero,
           (total, p) => total + (p.end?.difference(p.start) ?? Duration.zero))

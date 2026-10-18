@@ -74,7 +74,7 @@ class MedicationsScreen extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(provider.notificationWarning ??
-              'Rappel le jour de péremption vers 9 h, selon les réglages du téléphone.'),
+              'Rappels un mois avant puis à échéance, vers 9 h. Orange : remplacement à prévoir. Rouge : date de péremption atteinte.'),
         ),
         if (provider.notificationWarning != null)
           TextButton.icon(
@@ -88,11 +88,11 @@ class MedicationsScreen extends StatelessWidget {
             margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: .14),
+                color: Colors.red.withValues(alpha: .14),
                 borderRadius: BorderRadius.circular(12)),
             child: Text(
                 'À vérifier aujourd’hui : ${dueToday.map((m) => m.name).join(', ')}',
-                style: const TextStyle(color: Colors.deepOrange)),
+                style: const TextStyle(color: Colors.red)),
           ),
         if (provider.isBusy) const LinearProgressIndicator(),
         Expanded(
@@ -117,9 +117,9 @@ class MedicationsScreen extends StatelessWidget {
                             itemCount: provider.items.length,
                             itemBuilder: (context, index) {
                               final item = provider.items[index];
-                              final color = item.isExpired
+                              final color = item.isDue
                                   ? Colors.red
-                                  : item.expiresToday
+                                  : item.needsReplacement
                                       ? Colors.orange
                                       : AppTheme.primaryColor;
                               return Card(
@@ -144,8 +144,8 @@ class MedicationsScreen extends StatelessWidget {
                                         if (item.note.isNotEmpty) item.note,
                                       ].join('\n'),
                                       style: TextStyle(
-                                          color: item.isExpired ||
-                                                  item.expiresToday
+                                          color: item.isDue ||
+                                                  item.needsReplacement
                                               ? color
                                               : null)),
                                   isThreeLine: true,

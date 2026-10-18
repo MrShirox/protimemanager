@@ -1,0 +1,14 @@
+# Planning, pauses, widgets et alertes
+
+- Planning : chaque plage affiche le début puis la fin sur deux lignes sous le jour. Les nuits restent réparties à minuit et le dimanche affiche le total hebdomadaire.
+- Chronomètre et accueil : début/fin de journée, pauses de 20, 30, 45, 50 ou 60 minutes. Reprise anticipée possible. L'heure de reprise est persistée : le calcul reprend même si l'application est fermée, sans dépendre d'un minuteur en arrière-plan. Terminer pendant une pause déduit seulement la partie écoulée.
+- Base SQLite v7 : ajout non destructif du marqueur `scheduled` aux pauses. Les anciennes pauses ouvertes restent utilisables. Les modifications manuelles du planning continuent à alimenter le même état que le chrono.
+- Widget Android : ouvrir l'application une fois, puis appui long sur l'accueil du téléphone → Widgets → ProTimeManager. Boutons Démarrer, Fin et cinq durées de pause. Le titre ouvre l'application. Les actions en arrière-plan utilisent la même base et les mêmes transactions que l'application ; revenir dans l'application recharge les données. Le widget affiche les horaires, pas un compteur animé. Le widget natif iOS n'est pas implémenté (une extension WidgetKit et une configuration de signature/app group sont nécessaires).
+- Constantes : sections Cardiaque, Respiratoire (FR incluse), Neuro (conscience et observations), Métabolique / autres (acétone incluse). Acétone accepte le résultat et son unité ou la lecture de bandelette. Aucune interprétation clinique automatique. Les nouvelles sauvegardes utilisent JSON ; les anciennes fiches restent lisibles.
+- Médicaments : orange dès un mois calendaire avant la date, rouge dès la date de péremption. Le 31 mars donne par exemple un avertissement le 28 février (29 en année bissextile). Deux notifications locales à 09 h, avec identifiants distincts ; ajout tardif dans la période orange : rappel immédiat. Autorisation de notifications nécessaire ; Android peut différer les alarmes selon ses restrictions d'énergie. Modifier/supprimer réconcilie les deux rappels. Les limites système portent sur le nombre de notifications, pas de médicaments.
+
+## Validation sur appareil
+
+Les tests automatisés couvrent SQLite/migrations, nuits, pauses programmées, contrôles Flutter, sauvegarde des constantes et programmation des deux notifications. La compilation APK vérifie les ressources et le code Kotlin du widget.
+
+Sur un téléphone Android : ajouter le widget, démarrer puis choisir une pause, fermer l'application et vérifier la reprise calculée à l'ouverture ; terminer depuis le widget puis comparer les heures au planning. Tester les notifications avec l'autorisation activée, puis après redémarrage du téléphone. Ces vérifications de livraison système et d'interaction avec le lanceur nécessitent un appareil réel ou un émulateur.

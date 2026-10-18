@@ -1,3 +1,18 @@
+import 'dart:convert';
+
+const constanteSections = {
+  'Cardiaque': [
+    'TA Bras gauche',
+    'TA Bras droit',
+    'Pouls',
+    'Rythme',
+    'Perception'
+  ],
+  'Respiratoire': ['SpO2', 'FR'],
+  'Neuro': ['Conscience', 'Observations neurologiques'],
+  'Métabolique / autres': ['Température', 'Glycémie', 'Acétone', 'Remarques'],
+};
+
 class Constante {
   final int? id;
   final String titre;
@@ -17,7 +32,8 @@ class Constante {
     return {
       if (id != null) 'id': id,
       'titre': titre,
-      'champs': champs.map((c) => '${c.label}::${c.valeur}').join('||'),
+      'champs': jsonEncode(
+          champs.map((c) => {'label': c.label, 'valeur': c.valeur}).toList()),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -27,13 +43,18 @@ class Constante {
     final champsRaw = map['champs'] as String? ?? '';
     final champs = champsRaw.isEmpty
         ? <ConstanteChamp>[]
-        : champsRaw.split('||').map((e) {
-            final parts = e.split('::');
-            return ConstanteChamp(
-              label: parts[0],
-              valeur: parts.length > 1 ? parts[1] : '',
-            );
-          }).toList();
+        : champsRaw.startsWith('[')
+            ? (jsonDecode(champsRaw) as List)
+                .map((e) => ConstanteChamp(
+                    label: e['label'] as String, valeur: e['valeur'] as String))
+                .toList()
+            : champsRaw.split('||').map((e) {
+                final parts = e.split('::');
+                return ConstanteChamp(
+                  label: parts[0],
+                  valeur: parts.length > 1 ? parts.skip(1).join('::') : '',
+                );
+              }).toList();
 
     return Constante(
       id: map['id'] as int?,

@@ -15,14 +15,37 @@ class Medication {
     this.note = '',
   });
 
-  bool get isExpired => expiryDate != null &&
-      DateTime(expiryDate!.year, expiryDate!.month, expiryDate!.day)
-          .isBefore(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day));
+  bool get isExpired =>
+      expiryDate != null &&
+      DateTime(expiryDate!.year, expiryDate!.month, expiryDate!.day).isBefore(
+          DateTime(
+              DateTime.now().year, DateTime.now().month, DateTime.now().day));
 
-  bool get expiresToday => expiryDate != null &&
+  bool get expiresToday =>
+      expiryDate != null &&
       expiryDate!.year == DateTime.now().year &&
       expiryDate!.month == DateTime.now().month &&
       expiryDate!.day == DateTime.now().day;
+
+  /// One calendar month, clamped to the last day of the previous month.
+  DateTime? get warningDate {
+    final expiry = expiryDate;
+    if (expiry == null) return null;
+    final last = DateTime(expiry.year, expiry.month, 0);
+    return DateTime(
+        last.year, last.month, expiry.day > last.day ? last.day : expiry.day);
+  }
+
+  bool warningAt(DateTime now) =>
+      warningDate != null &&
+      !DateTime(now.year, now.month, now.day).isBefore(warningDate!) &&
+      !dueAt(now);
+  bool dueAt(DateTime now) =>
+      expiryDate != null &&
+      !DateTime(now.year, now.month, now.day).isBefore(
+          DateTime(expiryDate!.year, expiryDate!.month, expiryDate!.day));
+  bool get needsReplacement => warningAt(DateTime.now());
+  bool get isDue => dueAt(DateTime.now());
 
   Map<String, dynamic> toMap() => {
         if (id != null) 'id': id,

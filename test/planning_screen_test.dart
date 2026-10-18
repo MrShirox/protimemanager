@@ -12,9 +12,73 @@ import 'package:protimemanager/providers/chrono_provider.dart';
 import 'package:protimemanager/screens/planning/planning_screen.dart';
 import 'package:protimemanager/screens/chrono/chrono_screen.dart';
 import 'package:protimemanager/widgets/session_editor.dart';
+import 'package:protimemanager/widgets/work_controls.dart';
 
 void main() {
   sqfliteFfiInit();
+
+  testWidgets('home controls start, pause, resume automatically and finish',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    late Directory dir;
+    late Database db;
+    late WorkSessions store;
+    late ChronoProvider chrono;
+    var clock = DateTime(2026, 10, 12, 8);
+    await tester.runAsync(() async {
+      dir = await Directory.systemTemp.createTemp('protime-controls-');
+      db = await DBHelper.instance
+          .openAt('${dir.path}/test.db', factory: databaseFactoryFfi);
+      store = WorkSessions(
+          database: () async => db, clock: () => clock, startTicker: false);
+      await store.ready;
+      chrono = ChronoProvider(store);
+    });
+    await tester.pumpWidget(ChangeNotifierProvider.value(
+        value: chrono,
+        child: const MaterialApp(
+            home:
+                Scaffold(body: SingleChildScrollView(child: WorkControls())))));
+    Future<void> tapAndPersist(String label) async {
+      await tester.runAsync(() async {
+        await tester.tap(find.text(label));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        while (store.busy) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+      });
+      await tester.pumpAndSettle();
+    }
+
+    await tapAndPersist('Début de journée');
+    expect(store.active, isNotNull);
+    for (final label in ['20 min', '30 min', '45 min', '50 min', '1 h']) {
+      expect(find.text(label), findsOneWidget);
+    }
+    clock = DateTime(2026, 10, 12, 9);
+    await tapAndPersist('30 min');
+    expect(find.text('Pause — reprise automatique à 09:30'), findsOneWidget);
+    expect(chrono.elapsed.inMinutes, 60);
+    clock = DateTime(2026, 10, 12, 10);
+    await tester.runAsync(store.reload);
+    await tester.pumpAndSettle();
+    expect(chrono.elapsed.inMinutes, 90);
+    await tapAndPersist('Fin de journée');
+    await tapAndPersist('Terminer');
+    expect(store.active, isNull);
+    expect(store.sessions.single.workedDuration(clock).inMinutes, 90);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(() async {
+      chrono.dispose();
+      store.dispose();
+      await db.close();
+      await dir.delete(recursive: true);
+    });
+  });
 
   testWidgets(
       'calendar shows Sunday total and two Tuesday night portions on a phone',
@@ -49,6 +113,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('Σ 27h00'), findsOneWidget);
+    expect(find.text('00:00\n05:00'), findsWidgets);
+    expect(find.text('20:00\n24:00'), findsWidgets);
     await tester.tap(find.text('13'));
     await tester.pumpAndSettle();
     expect(find.text('Total travaillé : 9h00'), findsOneWidget);

@@ -108,7 +108,8 @@ class _SessionEditorState extends State<SessionEditor> {
           startTime: _start,
           endTime: _end,
           pauses: _pauses
-              .map((p) => p.end == null && _end != null
+              .map((p) => _end != null &&
+                      (p.end == null || (p.scheduled && p.end!.isAfter(_end!)))
                   ? PauseEntry(start: p.start, end: _end)
                   : p)
               .toList());
@@ -207,14 +208,18 @@ class _SessionEditorState extends State<SessionEditor> {
                     _dateTime(
                         'Début de pause',
                         _pauses[i].start,
-                        (v) => _pauses[i] =
-                            PauseEntry(start: v, end: _pauses[i].end)),
+                        (v) => _pauses[i] = PauseEntry(
+                            start: v,
+                            end: _pauses[i].end,
+                            scheduled: _pauses[i].scheduled)),
                     if (_pauses[i].end != null)
                       _dateTime(
                           'Fin de pause',
                           _pauses[i].end!,
-                          (v) => _pauses[i] =
-                              PauseEntry(start: _pauses[i].start, end: v),
+                          (v) => _pauses[i] = PauseEntry(
+                              start: _pauses[i].start,
+                              end: v,
+                              scheduled: _pauses[i].scheduled),
                           after: _pauses[i].start)
                     else
                       const Text('Pause en cours'),

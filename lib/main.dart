@@ -10,12 +10,17 @@ import 'providers/constantes_provider.dart';
 import 'providers/medications_provider.dart';
 import 'database/db_helper.dart';
 import 'services/work_sessions.dart';
+import 'services/work_home_widget.dart';
+import 'package:home_widget/home_widget.dart';
 import 'screens/home/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('fr_FR', null);
   await DBHelper.instance.database;
+  if (supportsWorkWidget) {
+    await HomeWidget.registerInteractivityCallback(workWidgetAction);
+  }
   runApp(const ProTimeManagerApp());
 }
 
@@ -27,7 +32,13 @@ class ProTimeManagerApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => WorkSessions(), lazy: false),
+        ChangeNotifierProvider(
+            create: (_) {
+              final store = WorkSessions();
+              connectWorkWidget(store);
+              return store;
+            },
+            lazy: false),
         ChangeNotifierProvider(
             create: (context) =>
                 PlanningProvider(context.read<WorkSessions>())),

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="12dp" android:background="#102D35">
+    <TextView android:id="@+id/work_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="ProTimeManager" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="18sp" />
+    <TextView android:id="@+id/work_status" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="Ouvre ProTimeManager pour commencer" android:textColor="#FFFFFF" android:textSize="13sp" />
+    <TextView android:id="@+id/work_pause_status" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="Pause déduite du temps travaillé" android:textColor="#FFCC80" android:textSize="12sp" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal">
+        <Button android:id="@+id/work_start" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="Démarrer" android:textSize="13sp" />
+        <Button android:id="@+id/work_stop" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="Fin" android:textSize="13sp" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal">
+        <Button android:id="@+id/pause20" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:minWidth="0dp" android:padding="0dp" android:text="20 min" android:textSize="11sp" />
+        <Button android:id="@+id/pause30" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:minWidth="0dp" android:padding="0dp" android:text="30 min" android:textSize="11sp" />
+        <Button android:id="@+id/pause45" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:minWidth="0dp" android:padding="0dp" android:text="45 min" android:textSize="11sp" />
+        <Button android:id="@+id/pause50" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:minWidth="0dp" android:padding="0dp" android:text="50 min" android:textSize="11sp" />
+        <Button android:id="@+id/pause60" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:minWidth="0dp" android:padding="0dp" android:text="1 h" android:textSize="11sp" />
+    </LinearLayout>
+</LinearLayout>

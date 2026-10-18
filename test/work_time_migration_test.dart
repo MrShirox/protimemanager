@@ -102,7 +102,7 @@ void main() {
       try {
         await store.ready;
         expect(store.loadError, isNull);
-        expect(await db.getVersion(), 6);
+        expect(await db.getVersion(), 7);
         expect(store.sessions.length, 3);
         expect(store.dayMinutes(DateTime(2026, 10, 12)), 230);
         expect(store.dayMinutes(DateTime(2026, 10, 13)), 280);

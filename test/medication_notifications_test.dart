@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -74,14 +74,14 @@ void main() {
         await service.synchronize([item(DateTime(2090, 10, 20))],
             requestPermission: true, changedId: 7),
         isNull);
-    expect(pending.keys, [7]);
+    expect(pending.keys, [-7, 7]);
     expect(
         schedules().last.arguments['scheduledDateTime'], '2090-10-20T09:00:00');
     expect(schedules().last.arguments['timeZoneName'], 'Europe/Paris');
     await service.synchronize(
         [item(DateTime(2090, 11, 3), name: 'Nouveau nom')],
         changedId: 7);
-    expect(pending.length, 1);
+    expect(pending.length, 2);
     expect(
         schedules().last.arguments['scheduledDateTime'], '2090-11-03T09:00:00');
     expect(pending[7]!['body'], contains('Nouveau nom'));
@@ -134,6 +134,35 @@ void main() {
     expect(MedicationNotifications.reminderTime(DateTime(2026, 10, 23), before),
         isNull);
   });
+
+  test('one calendar month before expiry and expiry have separate reminders',
+      () async {
+    await service.synchronize([item(DateTime(2091, 3, 31))]);
+    expect(schedules().map((c) => c.arguments['scheduledDateTime']),
+        ['2091-02-28T09:00:00', '2091-03-31T09:00:00']);
+    expect(pending[-7]!['title'], contains('bientôt'));
+    expect(pending[7]!['title'], contains('péremption'));
+  });
+
+  test('late warning is caught up once and does not replace expiry alert',
+      () async {
+    final items = [item(DateTime(2090, 10, 20))];
+    await service.synchronize(items);
+    expect(schedules().first.arguments['scheduledDateTime'],
+        '2090-10-17T12:00:05');
+    pending.remove(-7);
+    await service.synchronize(items);
+    expect(schedules().where((c) => c.arguments['id'] == -7).length, 1);
+    expect(pending.containsKey(7), isTrue);
+  });
+
+  test('orange begins a calendar month before; red includes expiry day', () {
+    final m = item(DateTime(2028, 3, 31));
+    expect(m.warningDate, DateTime(2028, 2, 29));
+    expect(m.warningAt(DateTime(2028, 2, 28)), isFalse);
+    expect(m.warningAt(DateTime(2028, 2, 29)), isTrue);
+    expect(m.warningAt(DateTime(2028, 3, 31)), isFalse);
+    expect(m.dueAt(DateTime(2028, 3, 31)), isTrue);
+    expect(m.dueAt(DateTime(2028, 4, 1)), isTrue);
+  });
 }
-
-

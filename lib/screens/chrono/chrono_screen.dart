@@ -4,6 +4,7 @@ import '../../providers/chrono_provider.dart';
 import '../../providers/planning_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/session_editor.dart';
+import '../../widgets/work_controls.dart';
 
 class ChronoScreen extends StatelessWidget {
   const ChronoScreen({super.key});
@@ -59,7 +60,7 @@ class ChronoScreen extends StatelessWidget {
                 absorbing: chrono.isBusy || chrono.loadError != null,
                 child: Opacity(
                     opacity: chrono.isBusy ? .5 : 1,
-                    child: _ControlButtons(chrono: chrono)),
+                    child: const WorkControls()),
               ),
               const SizedBox(height: 20),
 
@@ -156,12 +157,6 @@ class _PauseDisplay extends StatelessWidget {
   final ChronoProvider chrono;
   const _PauseDisplay({required this.chrono});
 
-  String _fmtSecs(int secs) {
-    final m = secs ~/ 60;
-    final s = secs % 60;
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  }
-
   String _fmtTime(DateTime t) =>
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
@@ -171,8 +166,12 @@ class _PauseDisplay extends StatelessWidget {
     final current = chrono.current;
     if (current == null) return const SizedBox();
 
-    final pausesSaved = current.pauses.where((p) => p.end != null).toList();
-    final currentPauseSecs = chrono.currentPauseSecs;
+    final now = chrono.store.now();
+    final pausesSaved = current.pauses
+        .where((p) => p.end != null && !p.end!.isAfter(now))
+        .toList();
+    final deducted =
+        now.difference(current.startTime) - current.workedDuration(now);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -193,8 +192,8 @@ class _PauseDisplay extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   isPaused
-                      ? '⏸ Pause : ${_fmtSecs(currentPauseSecs)}'
-                      : 'Pauses : ${current.totalPauseMinutes}min',
+                      ? 'Pause en cours'
+                      : 'Pauses : ${deducted.inMinutes}min',
                   style: const TextStyle(
                       color: Colors.orange, fontWeight: FontWeight.bold),
                 ),
@@ -226,112 +225,6 @@ class _PauseDisplay extends StatelessWidget {
 }
 
 // ── Boutons contrôle ──────────────────────────────────────────────────────────
-class _ControlButtons extends StatelessWidget {
-  final ChronoProvider chrono;
-  const _ControlButtons({required this.chrono});
-
-  @override
-  Widget build(BuildContext context) {
-    final isRunning = chrono.isRunning;
-    final isPaused = chrono.isPaused;
-    final hasActive = chrono.hasActive;
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        if (!hasActive || isPaused)
-          _Btn(
-            icon: Icons.play_arrow_rounded,
-            label: hasActive ? 'Reprendre' : 'Démarrer',
-            color: Colors.green,
-            onTap:
-                hasActive ? () => chrono.resumePause() : () => chrono.start(),
-          ),
-        if (isRunning) ...[
-          const SizedBox(width: 20),
-          _Btn(
-            icon: Icons.pause_rounded,
-            label: 'Pause',
-            color: Colors.orange,
-            onTap: () => chrono.pause(),
-          ),
-        ],
-        if (hasActive) ...[
-          const SizedBox(width: 20),
-          _Btn(
-            icon: Icons.stop_rounded,
-            label: 'Terminer',
-            color: Colors.red,
-            onTap: () => _confirmStop(context),
-          ),
-        ],
-      ],
-    );
-  }
-
-  void _confirmStop(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Terminer la session ?'),
-        content: const Text('Le chrono sera arrêté et enregistré.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Annuler')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-              context.read<ChronoProvider>().stop();
-              Navigator.pop(ctx);
-            },
-            child:
-                const Text('Terminer', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Btn extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _Btn({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color.withValues(alpha: 0.15),
-            border: Border.all(color: color, width: 2),
-          ),
-          child: Icon(icon, color: color, size: 30),
-        ),
-        const SizedBox(height: 6),
-        Text(label,
-            style: TextStyle(
-                color: color, fontWeight: FontWeight.w600, fontSize: 12)),
-      ]),
-    );
-  }
-}
-
-// ── Liste pauses ──────────────────────────────────────────────────────────────
 class _SessionsList extends StatelessWidget {
   final ChronoProvider chrono;
   const _SessionsList({required this.chrono});

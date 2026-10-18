@@ -22,7 +22,7 @@ class DBHelper {
   Future<Database> openAt(String path, {DatabaseFactory? factory}) =>
       (factory ?? databaseFactory).openDatabase(path,
           options: OpenDatabaseOptions(
-            version: 6,
+            version: 7,
             onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
             onCreate: _createDB,
             onUpgrade: _upgradeDB,
@@ -61,6 +61,7 @@ class DBHelper {
         endMinutes INTEGER NOT NULL,
         startTime TEXT,
         endTime TEXT,
+        scheduled INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY (sessionId) REFERENCES chrono_sessions(id) ON DELETE CASCADE
       )
     ''');
@@ -121,6 +122,10 @@ class DBHelper {
         WHERE endMinutes = 0
           AND sessionId IN (SELECT id FROM chrono_sessions WHERE isActive = 1)
       ''');
+    }
+    if (oldV < 7) {
+      await db.execute(
+          'ALTER TABLE pause_plages ADD COLUMN scheduled INTEGER NOT NULL DEFAULT 0');
     }
     if (oldV < 6) {
       await db.execute(

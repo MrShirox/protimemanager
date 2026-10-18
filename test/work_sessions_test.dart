@@ -46,6 +46,81 @@ void main() {
     await directory.delete(recursive: true);
   });
 
+  test('scheduled pause resumes after restart, with no background timer',
+      () async {
+    await store.start();
+    clock = clock.add(const Duration(hours: 1));
+    await store.pause(minutes: 30);
+    clock = clock.add(const Duration(minutes: 10));
+    expect(chrono.isPaused, isTrue);
+    expect(chrono.elapsed.inMinutes, 60);
+    await close();
+    clock = clock.add(const Duration(minutes: 30));
+    await open();
+    expect(chrono.isPaused, isFalse);
+    expect(chrono.elapsed.inMinutes, 70);
+    await store.pause(minutes: 20);
+    clock = clock.add(const Duration(minutes: 25));
+    await store.stop();
+    expect(store.sessions.single.workedDuration(clock).inMinutes, 75);
+    expect(store.sessions.single.pauses.length, 2);
+  });
+
+  test('v6 upgrade keeps sessions and existing open pauses', () async {
+    await store.start();
+    clock = clock.add(const Duration(hours: 1));
+    await store.pause();
+    final id = store.active!.id;
+    await db.execute('ALTER TABLE pause_plages DROP COLUMN scheduled');
+    await db.setVersion(6);
+    await close();
+    await open();
+    expect(await db.getVersion(), 7);
+    expect(store.active!.id, id);
+    expect(chrono.isPaused, isTrue);
+    expect(store.active!.pauses.single.scheduled, isFalse);
+    expect(chrono.elapsed.inMinutes, 60);
+  });
+
+  test('stop during scheduled pause only deducts elapsed pause', () async {
+    await store.start();
+    clock = clock.add(const Duration(hours: 1));
+    await store.pause(minutes: 60);
+    clock = clock.add(const Duration(minutes: 12));
+    await store.stop();
+    expect(store.sessions.single.totalPauseMinutes, 12);
+    expect(store.sessions.single.workedDuration(clock).inMinutes, 60);
+    await store.start();
+    expect(store.sessions.length, 2);
+    expect(chrono.isPaused, isFalse);
+  });
+
+  test('scheduled pause spans midnight and planning edit keeps the deadline',
+      () async {
+    await store.start();
+    clock = DateTime(2026, 10, 12, 23, 50);
+    await store.pause(minutes: 30);
+    final original = store.active!;
+    await store.save(original.copyWith(startTime: DateTime(2026, 10, 12, 19)));
+    clock = DateTime(2026, 10, 13, 0, 30);
+    expect(chrono.isPaused, isFalse);
+    expect(planning.dayWorkedMinutes(DateTime(2026, 10, 12)), 290);
+    expect(planning.dayWorkedMinutes(DateTime(2026, 10, 13)), 10);
+    expect(store.active!.pauses.single.end, DateTime(2026, 10, 13, 0, 20));
+  });
+
+  test('manual stop clips a planned pause, early resume closes it', () async {
+    await store.start();
+    clock = clock.add(const Duration(hours: 1));
+    await store.pause(minutes: 45);
+    clock = clock.add(const Duration(minutes: 5));
+    await store.resume();
+    expect(chrono.isRunning, isTrue);
+    expect(store.active!.totalPauseMinutes, 5);
+    await expectLater(
+        store.pause(minutes: 10), throwsA(isA<WorkTimeException>()));
+  });
+
   test('three nights are separate sessions, Tuesday and Wednesday have 9 hours',
       () async {
     for (var day = 12; day <= 14; day++) {

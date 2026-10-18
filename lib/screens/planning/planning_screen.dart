@@ -173,7 +173,7 @@ class _CalendarGrid extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 7,
-        childAspectRatio: 0.60,
+        childAspectRatio: 0.35,
         crossAxisSpacing: 4,
         mainAxisSpacing: 4,
       ),
@@ -338,8 +338,13 @@ class _DayCell extends StatelessWidget {
             ),
           ],
           for (final session in sessions.take(2))
-            Text('${_hour(session.startMinutes)}–${_hour(session.endMinutes)}',
-                style: const TextStyle(fontSize: 8), maxLines: 1),
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                  '${_hour(session.startMinutes)}\n${_hour(session.endMinutes)}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 11, height: 1.2)),
+            ),
           if (sessions.length > 2)
             Text('+${sessions.length - 2}',
                 style: const TextStyle(fontSize: 8)),

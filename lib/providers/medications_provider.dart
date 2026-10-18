@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
 import '../models/medication.dart';
@@ -12,10 +13,21 @@ class MedicationsProvider extends ChangeNotifier with WidgetsBindingObserver {
   String? error;
   String? notificationWarning;
   bool _disposed = false;
+  Timer? _dayTimer;
 
   MedicationsProvider() {
     WidgetsBinding.instance.addObserver(this);
     load();
+    _refreshAtMidnight();
+  }
+
+  void _refreshAtMidnight() {
+    final now = DateTime.now();
+    _dayTimer =
+        Timer(DateTime(now.year, now.month, now.day + 1).difference(now), () {
+      _notify();
+      if (!_disposed) _refreshAtMidnight();
+    });
   }
 
   void _notify() {
@@ -133,6 +145,7 @@ class MedicationsProvider extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void dispose() {
     _disposed = true;
+    _dayTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

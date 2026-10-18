@@ -57,7 +57,7 @@ class MedicationNotifications {
     android: AndroidNotificationDetails(
       'medication_expiry',
       'Péremption des médicaments',
-      channelDescription: 'Rappels le jour de péremption des médicaments',
+      channelDescription: 'Rappels un mois avant et le jour de péremption',
       importance: Importance.high,
       priority: Priority.high,
     ),
@@ -82,12 +82,28 @@ class MedicationNotifications {
           !DateTime(d.year, d.month, d.day).isBefore(today);
     }).toList()
       ..sort((a, b) => a.expiryDate!.compareTo(b.expiryDate!));
-    // iOS allows 64 pending notifications. Prioritize the nearest expiries.
+    // Each phase has its own stable id. Existing expiry ids are preserved.
+    final plans = <({Medication item, int id, DateTime date, bool warning})>[];
+    for (final item in eligible) {
+      plans.add(
+          (item: item, id: item.id!, date: item.expiryDate!, warning: false));
+      if (DateTime(item.expiryDate!.year, item.expiryDate!.month,
+              item.expiryDate!.day)
+          .isAfter(today)) {
+        plans.add((
+          item: item,
+          id: -item.id!,
+          date: item.warningDate!,
+          warning: true
+        ));
+      }
+    }
+    plans.sort((a, b) => a.date.compareTo(b.date));
     final limit = defaultTargetPlatform == TargetPlatform.iOS ? 64 : 450;
-    final selected = eligible.take(limit).toList();
+    final selected = plans.take(limit).toList();
     final prefs = await SharedPreferences.getInstance();
     final pending = await _plugin.pendingNotificationRequests();
-    final selectedIds = selected.map((m) => m.id!).toSet();
+    final selectedIds = selected.map((m) => m.id).toSet();
     for (final p in pending) {
       if (p.payload?.startsWith('medication:') == true &&
           !selectedIds.contains(p.id)) {
@@ -97,25 +113,32 @@ class MedicationNotifications {
     // Also clear an already displayed notification for an edited/deleted item.
     if (changedId != null) {
       await _plugin.cancel(changedId);
+      await _plugin.cancel(-changedId);
+      await prefs.remove('medication.reminder.${-changedId}');
       await prefs.remove('medication.reminder.$changedId');
     }
     if (!allowed) {
       return 'Notifications désactivées. Autorise-les pour ProTimeManager dans les réglages du téléphone.';
     }
-    for (final item in selected) {
-      final when = reminderTime(item.expiryDate!, now);
-      if (when == null) continue;
-      final morning = tz.TZDateTime(tz.local, item.expiryDate!.year,
-          item.expiryDate!.month, item.expiryDate!.day, 9);
-      final key = 'medication.reminder.${item.id}';
+    for (final plan in selected) {
+      final item = plan.item;
+      final morning = tz.TZDateTime(
+          tz.local, plan.date.year, plan.date.month, plan.date.day, 9);
+      final when =
+          morning.isAfter(now) ? morning : now.add(const Duration(seconds: 5));
+      final key = 'medication.reminder.${plan.id}';
       final dateKey =
           '${item.expiryDate!.year}-${item.expiryDate!.month}-${item.expiryDate!.day}';
       // Avoid repeat alerts on every launch after 09:00. Keep any pending one.
       if (!morning.isAfter(now) && prefs.getString(key) == dateKey) continue;
       await _plugin.zonedSchedule(
-        item.id!,
-        'Médicament à péremption',
-        '${item.name} arrive à sa date de péremption aujourd’hui.',
+        plan.id,
+        plan.warning
+            ? 'Médicament à remplacer bientôt'
+            : 'Médicament à péremption',
+        plan.warning
+            ? '${item.name} : péremption le ${item.expiryDate!.day}/${item.expiryDate!.month}/${item.expiryDate!.year}. Prévois son remplacement.'
+            : '${item.name} arrive à sa date de péremption aujourd’hui.',
         when,
         _details,
         payload: 'medication:${item.id}',
@@ -125,7 +148,7 @@ class MedicationNotifications {
       );
       await prefs.setString(key, dateKey);
     }
-    if (eligible.length > limit) {
+    if (plans.length > limit) {
       return 'Les $limit prochaines péremptions sont programmées. Ouvre régulièrement l’application pour programmer les suivantes.';
     }
     return null;

@@ -16,7 +16,7 @@ class ChronoProvider extends ChangeNotifier {
 
   ChronoSession? get current => store.active;
   bool get hasActive => current != null;
-  bool get isPaused => current?.isPaused ?? false;
+  bool get isPaused => current?.isPausedAt(store.now()) ?? false;
   bool get isRunning => hasActive && !isPaused;
   bool get isBusy => store.busy;
   String? get loadError => store.loadError;
@@ -44,7 +44,8 @@ class ChronoProvider extends ChangeNotifier {
   }
 
   Future<void> start() => _run(store.start);
-  Future<void> pause() => _run(store.pause);
+  Future<void> pause({int? minutes}) =>
+      _run(() => store.pause(minutes: minutes));
   Future<void> resumePause() => _run(store.resume);
   Future<void> stop() => _run(store.stop);
   Future<void> retry() => _run(store.reload);

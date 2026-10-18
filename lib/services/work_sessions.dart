@@ -56,6 +56,7 @@ class WorkSessions extends ChangeNotifier with WidgetsBindingObserver {
           pauseRows.where((p) => p['sessionId'] == row['id']).map((p) {
         return PauseEntry(
             start: DateTime.parse(p['startTime'] as String).toLocal(),
+            scheduled: p['scheduled'] == 1,
             end: p['endTime'] == null
                 ? null
                 : DateTime.parse(p['endTime'] as String).toLocal());
@@ -147,22 +148,35 @@ class WorkSessions extends ChangeNotifier with WidgetsBindingObserver {
         await _write(db, session);
       });
 
-  Future<void> pause() => _change((db, rows) async {
+  Future<void> pause({int? minutes}) => _change((db, rows) async {
         final current = _active(rows);
-        if (current == null || current.isPaused) return;
-        final updated = current
-            .copyWith(pauses: [...current.pauses, PauseEntry(start: now())]);
+        if (current == null || current.isPausedAt(now())) return;
+        if (minutes != null && ![20, 30, 45, 50, 60].contains(minutes)) {
+          throw const WorkTimeException(
+              'Choisis une pause de 20, 30, 45, 50 minutes ou 1 heure.');
+        }
+        final start = now();
+        final updated = current.copyWith(pauses: [
+          ...current.pauses,
+          PauseEntry(
+              start: start,
+              end: minutes == null
+                  ? null
+                  : start.add(Duration(minutes: minutes)),
+              scheduled: minutes != null)
+        ]);
         _validate(updated, rows);
         await _write(db, updated);
       });
 
   Future<void> resume() => _change((db, rows) async {
         final current = _active(rows);
-        if (current == null || !current.isPaused) return;
+        if (current == null || !current.isPausedAt(now())) return;
         final updated = current.copyWith(
             pauses: current.pauses
-                .map((p) =>
-                    p.end == null ? PauseEntry(start: p.start, end: now()) : p)
+                .map((p) => p.activeAt(now())
+                    ? PauseEntry(start: p.start, end: now())
+                    : p)
                 .toList());
         _validate(updated, rows);
         await _write(db, updated);
@@ -176,7 +190,7 @@ class WorkSessions extends ChangeNotifier with WidgetsBindingObserver {
             endTime: end,
             pauses: current.pauses
                 .map((p) =>
-                    p.end == null ? PauseEntry(start: p.start, end: end) : p)
+                    p.activeAt(end) ? PauseEntry(start: p.start, end: end) : p)
                 .toList());
         _validate(updated, rows);
         await _write(db, updated);
@@ -226,7 +240,11 @@ class WorkSessions extends ChangeNotifier with WidgetsBindingObserver {
       final pe = p.end ?? clock;
       if (p.start.isBefore(session.startTime) ||
           pe.isBefore(p.start) ||
-          pe.isAfter(end) ||
+          (pe.isAfter(end) &&
+              !(p.scheduled &&
+                  session.isRunning &&
+                  i == pauses.length - 1 &&
+                  pe.difference(p.start) <= const Duration(hours: 1))) ||
           p.start.isAfter(clock) ||
           (p.end == null && (!session.isRunning || i != pauses.length - 1))) {
         throw const WorkTimeException(
@@ -258,6 +276,7 @@ class WorkSessions extends ChangeNotifier with WidgetsBindingObserver {
     for (final pause in session.pauses) {
       await db.insert('pause_plages', {
         'sessionId': id,
+        'scheduled': pause.scheduled ? 1 : 0,
         'jour': dayKey(pause.start),
         'startMinutes': pause.start.hour * 60 + pause.start.minute,
         'endMinutes':
