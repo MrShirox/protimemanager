@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:protimemanager/database/db_helper.dart';
 import 'package:protimemanager/models/chrono_entry.dart';
+import 'package:protimemanager/models/shift.dart';
 import 'package:protimemanager/services/work_sessions.dart';
 import 'package:protimemanager/providers/planning_provider.dart';
 import 'package:protimemanager/providers/chrono_provider.dart';
@@ -136,7 +137,16 @@ void main() {
     expect(find.text('Σ 27h00'), findsOneWidget);
     expect(find.text('00:00\n05:00'), findsNothing);
     expect(find.text('9h00'), findsWidgets);
-    await tester.tap(find.text('13'));
+    // Painting with a selected shift type must not open the day details.
+    planning.selectShiftType(ShiftType.values.first);
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      await tester.tap(find.text('13'));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    });
+    await tester.pumpAndSettle();
+    expect(find.text('Total travaillé : 9h00'), findsNothing);
+    await tester.longPress(find.text('13'));
     await tester.pumpAndSettle();
     expect(find.text('Total travaillé : 9h00'), findsOneWidget);
     expect(find.text('00:00 → 05:00'), findsOneWidget);

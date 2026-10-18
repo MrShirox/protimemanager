@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -83,6 +84,29 @@ class MedicationNotifications {
     iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
   );
 
+  static const _store = MethodChannel('protimemanager/reminders');
+
+  /// Clears the plugin's saved reminder list when it is unreadable (see
+  /// MainActivity.kt). Returns true when something was cleared.
+  Future<bool> _repairStore({bool force = false}) async {
+    if (defaultTargetPlatform != TargetPlatform.android) return false;
+    try {
+      return await _store
+              .invokeMethod<bool>('repairScheduledStore', {'force': force}) ??
+          false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Old alarms are only known by id once the saved list is gone.
+  Future<void> _cancelEvery(List<Medication> items) async {
+    for (final id in items.map((m) => m.id).whereType<int>()) {
+      await _plugin.cancel(id);
+      await _plugin.cancel(-id);
+    }
+  }
+
   /// Reconcile SQLite with OS reminders on launch and after CRUD.
   /// Returns a user-facing warning, or null when scheduling is available.
   Future<String?> synchronize(List<Medication> items,
@@ -91,6 +115,22 @@ class MedicationNotifications {
       return 'Les rappels de péremption sont disponibles sur Android et iPhone.';
     }
     await _initialize();
+    if (await _repairStore()) await _cancelEvery(items);
+    try {
+      return await _synchronize(items,
+          requestPermission: requestPermission, changedId: changedId);
+    } on PlatformException {
+      // A list saved by an older build can be unreadable in ways the check
+      // above misses: reset it once, then schedule everything again.
+      if (!await _repairStore(force: true)) rethrow;
+      await _cancelEvery(items);
+      return _synchronize(items,
+          requestPermission: requestPermission, changedId: changedId);
+    }
+  }
+
+  Future<String?> _synchronize(List<Medication> items,
+      {required bool requestPermission, int? changedId}) async {
     final allowed = await _permission(requestPermission);
     final now = tz.TZDateTime.from(_now(), tz.local);
     final today = DateTime(now.year, now.month);

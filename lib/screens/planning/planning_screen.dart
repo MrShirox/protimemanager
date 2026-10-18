@@ -105,7 +105,7 @@ class _ShiftButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final planning = context.watch<PlanningProvider>();
-    return Padding(
+    final buttons = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Wrap(
         spacing: 6,
@@ -151,6 +151,15 @@ class _ShiftButtons extends StatelessWidget {
         }).toList(),
       ),
     );
+    if (planning.selectedShiftType == null) return buttons;
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      buttons,
+      const Padding(
+        padding: EdgeInsets.only(top: 6),
+        child: Text('Touche les jours pour les colorier · appui long : détail',
+            style: TextStyle(fontSize: 11, color: Colors.grey)),
+      ),
+    ]);
   }
 }
 
@@ -191,12 +200,7 @@ class _CalendarGrid extends StatelessWidget {
           final monday = date.subtract(Duration(days: date.weekday - 1));
           weekTotal = planning.weeklyWorkedMinutes(monday);
         }
-        return GestureDetector(
-          onTap: () {
-            if (planning.selectedShiftType != null) {
-              planning.setShiftType(date, planning.selectedShiftType!);
-            }
-            showModalBottomSheet(
+        void showDetails() => showModalBottomSheet(
               context: context,
               isScrollControlled: true,
               shape: const RoundedRectangleBorder(
@@ -206,7 +210,17 @@ class _CalendarGrid extends StatelessWidget {
                 date: date,
               ),
             );
+        return GestureDetector(
+          // With a shift type selected, a tap only paints so several days can
+          // be coloured in a row; a long press always opens the details.
+          onTap: () {
+            if (planning.selectedShiftType != null) {
+              planning.setShiftType(date, planning.selectedShiftType!);
+            } else {
+              showDetails();
+            }
           },
+          onLongPress: showDetails,
           child: _DayCell(
             day: dayNum,
             date: date,
