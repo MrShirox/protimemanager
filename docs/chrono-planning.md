@@ -16,11 +16,14 @@ Les sessions du jour et le total du jour montrent seulement les portions de ce
 jour. Les pauses multiples sont horodatées avec une date complète ; une pause
 qui traverse minuit est répartie de la même façon que le travail.
 
-Les commandes de début/fin de journée et les pauses de 20, 30, 45, 50 ou 60 minutes
-sont disponibles dans le chrono et l'accueil. La fin prévue de pause est enregistrée :
-le travail reprend automatiquement dans les calculs même après fermeture. Une reprise
-anticipée ou un arrêt pendant la pause ne déduit que la durée écoulée. Le widget
-Android propose les mêmes commandes (voir [les détails](updates-october-2026.md)).
+Les pauses de 20, 30, 45, 50 ou 60 minutes sont désormais déduites immédiatement,
+sans suspendre le chrono, depuis le chrono, l'accueil et le widget Android.
+Exemple : 2 h moins 30 min donne 1 h 30, puis le compteur continue à avancer.
+Chaque déduction est modifiable ou supprimable dans le planning et appartient au
+jour de son ajout. Sa date d'imputation peut être corrigée. Une saisie qui rendrait
+le temps du jour négatif est refusée. Les anciennes pauses conservent leur historique.
+Les cases compactes affichent uniquement le total quotidien ; la fenêtre du jour
+conserve les horaires détaillés et l'édition.
 
 La fenêtre du jour affiche les portions quotidiennes. « Modifier la session »
 ouvre les dates et horaires de la session complète. Corriger 09:00 en 08:00 à
@@ -52,6 +55,7 @@ doit être vérifié dans l'éditeur. Les anciennes heures ambiguës lors d'un c
 d'heure ne peuvent pas être reconstruites avec certitude sans l'information de fuseau.
 
 La migration v7 ajoute le marqueur de pause programmée, sans modifier les anciennes pauses.
+La migration v8 ajoute `deductionMinutes`, sans convertir ni effacer les pauses antérieures.
 
 ## Vérification
 

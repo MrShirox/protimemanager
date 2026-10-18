@@ -86,7 +86,10 @@ class _ConstanteForm extends StatefulWidget {
 class _ConstanteFormState extends State<_ConstanteForm> {
   late TextEditingController taGSys, taGDia, taDSys, taDDia;
   late TextEditingController pouls, temp, spo2, glyc, note;
-  late TextEditingController fr, acetone, conscience, neuro;
+  late TextEditingController fr, acetone;
+  final Map<String, String?> _fast = {
+    for (final name in ['FACE', 'ARM', 'SPEECH', 'TIME']) name: null
+  };
   bool _saving = false;
   String? _error;
   late bool rythmeRegulier, bienPercu;
@@ -132,8 +135,10 @@ class _ConstanteFormState extends State<_ConstanteForm> {
     note = TextEditingController(text: _get('Remarques'));
     fr = TextEditingController(text: _get('FR'));
     acetone = TextEditingController(text: _get('Acétone'));
-    conscience = TextEditingController(text: _get('Conscience'));
-    neuro = TextEditingController(text: _get('Observations neurologiques'));
+    for (final name in _fast.keys) {
+      final value = _get('FAST $name');
+      _fast[name] = ['OK', 'NON'].contains(value) ? value : null;
+    }
     rythmeRegulier = _get('Rythme') != 'Irrégulier';
     bienPercu = _get('Perception') != 'Mal perçu';
   }
@@ -151,9 +156,7 @@ class _ConstanteFormState extends State<_ConstanteForm> {
       glyc,
       note,
       fr,
-      acetone,
-      conscience,
-      neuro
+      acetone
     ]) {
       c.dispose();
     }
@@ -294,23 +297,25 @@ class _ConstanteFormState extends State<_ConstanteForm> {
                     labelText: 'FR — fréquence respiratoire (/min)')),
             const Divider(height: 24),
             _section('Neuro'),
-            TextField(
-                controller: conscience,
-                decoration: const InputDecoration(labelText: 'Conscience')),
-            TextField(
-                controller: neuro,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                    labelText: 'Observations neurologiques')),
+            for (final name in _fast.keys)
+              Row(children: [
+                Expanded(
+                    child: Text(name,
+                        style: const TextStyle(fontWeight: FontWeight.w600))),
+                for (final choice in ['OK', 'NON']) ...[
+                  Checkbox(
+                      value: _fast[name] == choice,
+                      onChanged: _saving
+                          ? null
+                          : (checked) => setState(() =>
+                              _fast[name] = checked == true ? choice : null)),
+                  Text(choice),
+                ],
+              ]),
             const Divider(height: 24),
             _section('Métabolique / autres'),
             const Text('Température (°C)'),
             _numField(temp, 'ex : 37.2', 5, decimal: true),
-            TextField(
-                controller: acetone,
-                decoration: const InputDecoration(
-                    labelText: 'Acétone',
-                    hintText: 'Résultat et unité ou lecture de la bandelette')),
             const Divider(height: 24),
 
             // ── Glycémie ──
@@ -332,6 +337,11 @@ class _ConstanteFormState extends State<_ConstanteForm> {
                     EdgeInsets.symmetric(vertical: 10, horizontal: 4),
               ),
             ),
+            TextField(
+                controller: acetone,
+                decoration: const InputDecoration(
+                    labelText: 'Acétone',
+                    hintText: 'Résultat et unité ou lecture de la bandelette')),
             const Divider(height: 24),
 
             // ── Remarques ──
@@ -396,13 +406,11 @@ class _ConstanteFormState extends State<_ConstanteForm> {
         if (!constanteSections.values.expand((v) => v).contains(c.label)) c,
       if (fr.text.trim().isNotEmpty)
         ConstanteChamp(label: 'FR', valeur: '${fr.text.trim()} /min'),
-      if (acetone.text.trim().isNotEmpty)
-        ConstanteChamp(label: 'Acétone', valeur: acetone.text.trim()),
-      if (conscience.text.trim().isNotEmpty)
-        ConstanteChamp(label: 'Conscience', valeur: conscience.text.trim()),
-      if (neuro.text.trim().isNotEmpty)
-        ConstanteChamp(
-            label: 'Observations neurologiques', valeur: neuro.text.trim()),
+      for (final entry in _fast.entries)
+        if (entry.value != null)
+          ConstanteChamp(label: 'FAST ${entry.key}', valeur: entry.value!),
+      for (final c in widget.existing?.champs ?? <ConstanteChamp>[])
+        if (['Conscience', 'Observations neurologiques'].contains(c.label)) c,
       if (taGSys.text.isNotEmpty || taGDia.text.isNotEmpty)
         ConstanteChamp(
             label: 'TA Bras gauche',
@@ -425,6 +433,8 @@ class _ConstanteFormState extends State<_ConstanteForm> {
         ConstanteChamp(
             label: 'Glycémie',
             valeur: '${glyc.text} mmol/L — ${DateFormat('HH:mm').format(now)}'),
+      if (acetone.text.trim().isNotEmpty)
+        ConstanteChamp(label: 'Acétone', valeur: acetone.text.trim()),
       if (note.text.isNotEmpty)
         ConstanteChamp(label: 'Remarques', valeur: note.text),
     ];
@@ -509,8 +519,9 @@ class _ConstanteCard extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 10, bottom: 4),
                     child: Text(section.key,
                         style: const TextStyle(fontWeight: FontWeight.bold))),
-                ...constante.champs
-                    .where((c) => section.value.contains(c.label))
+                ...section.value
+                    .expand((label) =>
+                        constante.champs.where((c) => c.label == label))
                     .map((c) => Padding(
                           padding: const EdgeInsets.symmetric(vertical: 2),
                           child: Row(children: [

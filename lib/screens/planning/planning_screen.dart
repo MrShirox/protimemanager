@@ -173,7 +173,7 @@ class _CalendarGrid extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 7,
-        childAspectRatio: 0.35,
+        childAspectRatio: 0.65,
         crossAxisSpacing: 4,
         mainAxisSpacing: 4,
       ),
@@ -216,6 +216,7 @@ class _CalendarGrid extends StatelessWidget {
             isWeekend: isWeekend,
             isDark: isDark,
             weekTotal: weekTotal,
+            workedMinutes: planning.dayWorkedMinutes(date),
           ),
         );
       },
@@ -236,6 +237,7 @@ class _DayCell extends StatelessWidget {
   final List<SessionInfo> sessions;
   final bool isToday, isWeekend, isDark;
   final int? weekTotal;
+  final int workedMinutes;
 
   const _DayCell({
     required this.day,
@@ -246,6 +248,7 @@ class _DayCell extends StatelessWidget {
     required this.isWeekend,
     required this.isDark,
     this.weekTotal,
+    required this.workedMinutes,
   });
 
   String _shortLabel(ShiftType t) {
@@ -266,10 +269,6 @@ class _DayCell extends StatelessWidget {
         return 'REP';
     }
   }
-
-  String _hour(int minutes) => minutes < 0
-      ? '…'
-      : '${(minutes ~/ 60).toString().padLeft(2, '0')}:${(minutes % 60).toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
@@ -337,17 +336,11 @@ class _DayCell extends StatelessWidget {
               ),
             ),
           ],
-          for (final session in sessions.take(2))
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                  '${_hour(session.startMinutes)}\n${_hour(session.endMinutes)}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 11, height: 1.2)),
-            ),
-          if (sessions.length > 2)
-            Text('+${sessions.length - 2}',
-                style: const TextStyle(fontSize: 8)),
+          if (hasSession)
+            Text(
+                '${workedMinutes ~/ 60}h${(workedMinutes % 60).toString().padLeft(2, '0')}',
+                style:
+                    const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
           if (weekTotal != null) ...[
             const SizedBox(height: 2),
             Text(
@@ -457,8 +450,9 @@ class _DayPopup extends StatelessWidget {
                             'Session du ${DateFormat('dd/MM à HH:mm').format(info.session.startTime)}'
                             '${info.session.endTime == null ? ' — en cours' : ' au ${DateFormat('dd/MM à HH:mm').format(info.session.endTime!)}'}'),
                         for (final p in info.portion.pauses)
-                          Text(
-                              'Pause : ${DateFormat('HH:mm').format(p.start)} → ${p.end == null ? 'en cours' : p.end == nextDay(date) ? '24:00' : DateFormat('HH:mm').format(p.end!)}'),
+                          Text(p.deductionMinutes != null
+                              ? 'Pause : ${p.deductionMinutes} min déduites'
+                              : 'Pause : ${DateFormat('HH:mm').format(p.start)} → ${p.end == null ? 'en cours' : p.end == nextDay(date) ? '24:00' : DateFormat('HH:mm').format(p.end!)}'),
                         Wrap(spacing: 8, children: [
                           TextButton.icon(
                               onPressed: planning.isBusy

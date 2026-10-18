@@ -46,11 +46,20 @@ void main() {
     await directory.delete(recursive: true);
   });
 
+  Future<void> legacyScheduledPause(int minutes) =>
+      store.save(store.active!.copyWith(pauses: [
+        ...store.active!.pauses,
+        PauseEntry(
+            start: clock,
+            end: clock.add(Duration(minutes: minutes)),
+            scheduled: true)
+      ]));
+
   test('scheduled pause resumes after restart, with no background timer',
       () async {
     await store.start();
     clock = clock.add(const Duration(hours: 1));
-    await store.pause(minutes: 30);
+    await legacyScheduledPause(30);
     clock = clock.add(const Duration(minutes: 10));
     expect(chrono.isPaused, isTrue);
     expect(chrono.elapsed.inMinutes, 60);
@@ -59,7 +68,7 @@ void main() {
     await open();
     expect(chrono.isPaused, isFalse);
     expect(chrono.elapsed.inMinutes, 70);
-    await store.pause(minutes: 20);
+    await legacyScheduledPause(20);
     clock = clock.add(const Duration(minutes: 25));
     await store.stop();
     expect(store.sessions.single.workedDuration(clock).inMinutes, 75);
@@ -72,10 +81,11 @@ void main() {
     await store.pause();
     final id = store.active!.id;
     await db.execute('ALTER TABLE pause_plages DROP COLUMN scheduled');
+    await db.execute('ALTER TABLE pause_plages DROP COLUMN deductionMinutes');
     await db.setVersion(6);
     await close();
     await open();
-    expect(await db.getVersion(), 7);
+    expect(await db.getVersion(), 8);
     expect(store.active!.id, id);
     expect(chrono.isPaused, isTrue);
     expect(store.active!.pauses.single.scheduled, isFalse);
@@ -85,7 +95,7 @@ void main() {
   test('stop during scheduled pause only deducts elapsed pause', () async {
     await store.start();
     clock = clock.add(const Duration(hours: 1));
-    await store.pause(minutes: 60);
+    await legacyScheduledPause(60);
     clock = clock.add(const Duration(minutes: 12));
     await store.stop();
     expect(store.sessions.single.totalPauseMinutes, 12);
@@ -95,11 +105,26 @@ void main() {
     expect(chrono.isPaused, isFalse);
   });
 
+  test('v7 upgrade preserves previous scheduled pauses', () async {
+    await store.start();
+    clock = clock.add(const Duration(hours: 2));
+    await legacyScheduledPause(30);
+    await db.execute('ALTER TABLE pause_plages DROP COLUMN deductionMinutes');
+    await db.setVersion(7);
+    await close();
+    await open();
+    expect(await db.getVersion(), 8);
+    expect(store.active!.pauses.single.scheduled, isTrue);
+    expect(store.active!.pauses.single.deductionMinutes, isNull);
+    clock = clock.add(const Duration(hours: 1));
+    expect(chrono.elapsed.inMinutes, 150);
+  });
+
   test('scheduled pause spans midnight and planning edit keeps the deadline',
       () async {
     await store.start();
     clock = DateTime(2026, 10, 12, 23, 50);
-    await store.pause(minutes: 30);
+    await legacyScheduledPause(30);
     final original = store.active!;
     await store.save(original.copyWith(startTime: DateTime(2026, 10, 12, 19)));
     clock = DateTime(2026, 10, 13, 0, 30);
@@ -112,7 +137,7 @@ void main() {
   test('manual stop clips a planned pause, early resume closes it', () async {
     await store.start();
     clock = clock.add(const Duration(hours: 1));
-    await store.pause(minutes: 45);
+    await legacyScheduledPause(45);
     clock = clock.add(const Duration(minutes: 5));
     await store.resume();
     expect(chrono.isRunning, isTrue);
@@ -143,6 +168,65 @@ void main() {
     await open();
     expect(store.sessions.length, 3);
     expect(planning.dayWorkedMinutes(DateTime(2026, 10, 13)), 540);
+  });
+
+  test(
+      'duration buttons deduct immediately, accumulate, persist and never pause',
+      () async {
+    await store.start();
+    clock = clock.add(const Duration(hours: 2));
+    await store.pause(minutes: 30);
+    expect(chrono.isRunning, isTrue);
+    expect(chrono.elapsed.inMinutes, 90);
+    await store.pause(minutes: 20);
+    expect(chrono.elapsed.inMinutes, 70);
+    clock = clock.add(const Duration(minutes: 5));
+    expect(chrono.elapsed.inMinutes, 75);
+    await close();
+    await open();
+    expect(chrono.elapsed.inMinutes, 75);
+    expect(store.active!.pauses.length, 2);
+    final session = store.active!;
+    await planning.saveSession(session.copyWith(pauses: [
+      PauseEntry(
+          start: session.pauses.first.start,
+          end: session.pauses.first.start,
+          deductionMinutes: 45)
+    ]));
+    expect(chrono.elapsed.inMinutes, 80);
+    expect(planning.dayWorkedMinutes(clock), 80);
+    await store.stop();
+    expect(store.sessions.single.totalPauseMinutes, 45);
+  });
+
+  test('night deductions stay on their recorded day and totals agree',
+      () async {
+    await store.start();
+    clock = DateTime(2026, 10, 12, 23);
+    await store.pause(minutes: 30);
+    clock = DateTime(2026, 10, 13, 2);
+    await store.pause(minutes: 20);
+    clock = DateTime(2026, 10, 13, 5);
+    await store.stop();
+    expect(planning.dayWorkedMinutes(DateTime(2026, 10, 12)), 210);
+    expect(planning.dayWorkedMinutes(DateTime(2026, 10, 13)), 280);
+    expect(
+        planning.getSessions(DateTime(2026, 10, 13)).single.pauseMinutes, 20);
+    expect(store.sessions.single.workedDuration(clock).inMinutes, 490);
+    expect(planning.weeklyWorkedMinutes(DateTime(2026, 10, 12)), 490);
+  });
+
+  test('deductions cannot exceed time available and failed edit keeps old data',
+      () async {
+    await store.start();
+    await expectLater(
+        store.pause(minutes: 30), throwsA(isA<WorkTimeException>()));
+    clock = clock.add(const Duration(minutes: 40));
+    await store.pause(minutes: 30);
+    await expectLater(
+        store.pause(minutes: 20), throwsA(isA<WorkTimeException>()));
+    expect(chrono.elapsed.inMinutes, 10);
+    expect(store.active!.pauses.length, 1);
   });
 
   test('editing 09:00 to 08:00 immediately updates active chrono and totals',

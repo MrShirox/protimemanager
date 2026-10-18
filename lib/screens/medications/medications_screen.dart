@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../models/medication.dart';
 import '../../providers/medications_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/expiry_month_picker.dart';
 
 class MedicationsScreen extends StatelessWidget {
   const MedicationsScreen({super.key});
@@ -49,7 +50,7 @@ class MedicationsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<MedicationsProvider>();
-    final dueToday = provider.expiringToday;
+    final dueToday = provider.expiringThisMonth;
     final busy = provider.isLoading || provider.isBusy;
     return Scaffold(
       body: SafeArea(
@@ -74,7 +75,7 @@ class MedicationsScreen extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(provider.notificationWarning ??
-              'Rappels un mois avant puis à échéance, vers 9 h. Orange : remplacement à prévoir. Rouge : date de péremption atteinte.'),
+              'Orange dès le mois précédent ; rouge dès le mois indiqué. Rappels le 1er de chaque mois concerné, vers 9 h.'),
         ),
         if (provider.notificationWarning != null)
           TextButton.icon(
@@ -91,7 +92,7 @@ class MedicationsScreen extends StatelessWidget {
                 color: Colors.red.withValues(alpha: .14),
                 borderRadius: BorderRadius.circular(12)),
             child: Text(
-                'À vérifier aujourd’hui : ${dueToday.map((m) => m.name).join(', ')}',
+                'Mois de péremption atteint : ${dueToday.map((m) => m.name).join(', ')}',
                 style: const TextStyle(color: Colors.red)),
           ),
         if (provider.isBusy) const LinearProgressIndicator(),
@@ -138,7 +139,7 @@ class MedicationsScreen extends StatelessWidget {
                                         if (item.dosage.isNotEmpty) item.dosage,
                                         'Quantité : ${item.quantity}',
                                         if (item.expiryDate != null)
-                                          'Péremption : ${DateFormat('dd/MM/yyyy').format(item.expiryDate!)}${item.isExpired ? ' • périmé' : item.expiresToday ? ' • aujourd’hui' : ''}'
+                                          'Péremption : ${DateFormat('MMMM yyyy', 'fr_FR').format(item.expiryDate!)}${item.isDue ? ' • mois atteint' : item.needsReplacement ? ' • remplacement à prévoir' : ''}'
                                         else
                                           'Date de péremption à compléter',
                                         if (item.note.isNotEmpty) item.note,
@@ -204,7 +205,7 @@ class _MedicationFormState extends State<_MedicationForm> {
   Future<void> _save() async {
     if (!_form.currentState!.validate() || _saving) return;
     if (_expiry == null) {
-      setState(() => _error = 'Choisis une date de péremption.');
+      setState(() => _error = 'Choisis un mois et une année de péremption.');
       return;
     }
     setState(() {
@@ -269,17 +270,14 @@ class _MedicationFormState extends State<_MedicationForm> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(_expiry == null
-                    ? 'Date de péremption *'
-                    : 'Péremption : ${DateFormat('dd/MM/yyyy').format(_expiry!)}'),
+                    ? 'Mois de péremption *'
+                    : 'Péremption : ${DateFormat('MMMM yyyy', 'fr_FR').format(_expiry!)}'),
                 trailing: const Icon(Icons.calendar_month),
                 onTap: _saving
                     ? null
                     : () async {
-                        final picked = await showDatePicker(
-                            context: context,
-                            initialDate: _expiry ?? DateTime.now(),
-                            firstDate: DateTime(1900),
-                            lastDate: DateTime(2200));
+                        final picked =
+                            await showExpiryMonthPicker(context, _expiry);
                         if (picked != null && mounted) {
                           setState(() {
                             _expiry = picked;
@@ -289,7 +287,7 @@ class _MedicationFormState extends State<_MedicationForm> {
                       },
               ),
               const Text(
-                  'Notification le jour de péremption vers 9 h. Si tu enregistres après 9 h pour aujourd’hui, le rappel est envoyé dès que possible.'),
+                  'Deux rappels : le 1er du mois précédent, puis le 1er du mois de péremption, vers 9 h. Un rappel déjà dû est envoyé dès que possible.'),
               TextFormField(
                   controller: _note,
                   enabled: !_saving,

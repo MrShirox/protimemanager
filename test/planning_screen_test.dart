@@ -17,7 +17,7 @@ import 'package:protimemanager/widgets/work_controls.dart';
 void main() {
   sqfliteFfiInit();
 
-  testWidgets('home controls start, pause, resume automatically and finish',
+  testWidgets('home controls deduct immediately without stopping and finish',
       (tester) async {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
@@ -27,6 +27,7 @@ void main() {
     late Database db;
     late WorkSessions store;
     late ChronoProvider chrono;
+    late PlanningProvider planning;
     var clock = DateTime(2026, 10, 12, 8);
     await tester.runAsync(() async {
       dir = await Directory.systemTemp.createTemp('protime-controls-');
@@ -36,12 +37,24 @@ void main() {
           database: () async => db, clock: () => clock, startTicker: false);
       await store.ready;
       chrono = ChronoProvider(store);
+      planning = PlanningProvider(store, loadShifts: false);
     });
-    await tester.pumpWidget(ChangeNotifierProvider.value(
-        value: chrono,
-        child: const MaterialApp(
-            home:
-                Scaffold(body: SingleChildScrollView(child: WorkControls())))));
+    await tester.pumpWidget(MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: chrono),
+          ChangeNotifierProvider.value(value: planning),
+        ],
+        child: MaterialApp(
+            home: Scaffold(
+                body: Builder(
+                    builder: (context) => SingleChildScrollView(
+                            child: Column(children: [
+                          const WorkControls(),
+                          TextButton(
+                              onPressed: () => showSessionEditor(context,
+                                  day: clock, session: store.active),
+                              child: const Text('Corriger pause')),
+                        ])))))));
     Future<void> tapAndPersist(String label) async {
       await tester.runAsync(() async {
         await tester.tap(find.text(label));
@@ -60,20 +73,28 @@ void main() {
     }
     clock = DateTime(2026, 10, 12, 9);
     await tapAndPersist('30 min');
-    expect(find.text('Pause — reprise automatique à 09:30'), findsOneWidget);
-    expect(chrono.elapsed.inMinutes, 60);
+    expect(chrono.isPaused, isFalse);
+    expect(find.text('30 min'), findsOneWidget);
+    expect(chrono.elapsed.inMinutes, 30);
+    await tapAndPersist('Corriger pause');
+    await tester.ensureVisible(find.byType(TextFormField));
+    await tester.enterText(find.byType(TextFormField), '45');
+    await tapAndPersist('Enregistrer');
+    expect(chrono.elapsed.inMinutes, 15);
+    expect(chrono.isRunning, isTrue);
     clock = DateTime(2026, 10, 12, 10);
     await tester.runAsync(store.reload);
     await tester.pumpAndSettle();
-    expect(chrono.elapsed.inMinutes, 90);
+    expect(chrono.elapsed.inMinutes, 75);
     await tapAndPersist('Fin de journée');
     await tapAndPersist('Terminer');
     expect(store.active, isNull);
-    expect(store.sessions.single.workedDuration(clock).inMinutes, 90);
+    expect(store.sessions.single.workedDuration(clock).inMinutes, 75);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(() async {
       chrono.dispose();
+      planning.dispose();
       store.dispose();
       await db.close();
       await dir.delete(recursive: true);
@@ -113,8 +134,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('Σ 27h00'), findsOneWidget);
-    expect(find.text('00:00\n05:00'), findsWidgets);
-    expect(find.text('20:00\n24:00'), findsWidgets);
+    expect(find.text('00:00\n05:00'), findsNothing);
+    expect(find.text('9h00'), findsWidgets);
     await tester.tap(find.text('13'));
     await tester.pumpAndSettle();
     expect(find.text('Total travaillé : 9h00'), findsOneWidget);

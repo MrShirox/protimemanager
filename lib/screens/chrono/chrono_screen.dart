@@ -208,7 +208,9 @@ class _PauseDisplay extends StatelessWidget {
           if (pausesSaved.isNotEmpty) ...[
             const SizedBox(height: 6),
             ...pausesSaved.map((p) => Text(
-                  '  ${_fmtTime(p.start)} → ${_fmtTime(p.end!)}  (${p.durationMinutes}min)',
+                  p.deductionMinutes != null
+                      ? '${p.durationMinutes} min déduites — ajout à ${_fmtTime(p.start)}'
+                      : '  ${_fmtTime(p.start)} → ${_fmtTime(p.end!)}  (${p.durationMinutes}min)',
                   style: const TextStyle(color: Colors.orange, fontSize: 12),
                 )),
           ],

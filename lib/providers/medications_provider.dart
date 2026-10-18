@@ -139,8 +139,8 @@ class MedicationsProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed && !isLoading && !isBusy) load();
   }
 
-  List<Medication> get expiringToday =>
-      _items.where((m) => m.expiresToday).toList();
+  List<Medication> get expiringThisMonth =>
+      _items.where((m) => m.expiresThisMonth).toList();
 
   @override
   void dispose() {

@@ -9,10 +9,18 @@ class PauseEntry {
   final DateTime start;
   final DateTime? end;
   final bool scheduled;
-  const PauseEntry({required this.start, this.end, this.scheduled = false});
+  final int? deductionMinutes;
+  const PauseEntry(
+      {required this.start,
+      this.end,
+      this.scheduled = false,
+      this.deductionMinutes});
   bool activeAt(DateTime now) =>
-      !start.isAfter(now) && (end == null || end!.isAfter(now));
-  int get durationMinutes => end == null ? 0 : end!.difference(start).inMinutes;
+      deductionMinutes == null &&
+      !start.isAfter(now) &&
+      (end == null || end!.isAfter(now));
+  int get durationMinutes =>
+      deductionMinutes ?? (end == null ? 0 : end!.difference(start).inMinutes);
 }
 
 class ChronoSession {
@@ -36,8 +44,13 @@ class ChronoSession {
   bool isPausedAt(DateTime now) =>
       isRunning && pauses.any((p) => p.activeAt(now));
   int get totalPauseMinutes => pauses
-      .fold<Duration>(Duration.zero,
-          (total, p) => total + (p.end?.difference(p.start) ?? Duration.zero))
+      .fold<Duration>(
+          Duration.zero,
+          (total, p) =>
+              total +
+              (p.deductionMinutes != null
+                  ? Duration(minutes: p.deductionMinutes!)
+                  : p.end?.difference(p.start) ?? Duration.zero))
       .inMinutes;
   int get workedMinutes => workedDuration(DateTime.now()).inMinutes;
 
@@ -49,6 +62,7 @@ class ChronoSession {
     if (!end.isAfter(start)) return Duration.zero;
     // Merge intersections defensively, including overlapping legacy pauses.
     final intervals = pauses
+        .where((p) => p.deductionMinutes == null)
         .map((pause) {
           final a = pause.start.isAfter(start) ? pause.start : start;
           final pauseEnd = pause.end ?? now;
@@ -70,6 +84,14 @@ class ChronoSession {
       }
     }
     if (lastEnd != null) deducted += lastEnd.difference(lastStart!);
+    for (final p in pauses.where((p) => p.deductionMinutes != null)) {
+      // A duration deduction belongs to its recorded calendar day, including
+      // when recorded at the exact stop instant. It never pauses the clock.
+      if ((from == null || !p.start.isBefore(from)) &&
+          (to == null || p.start.isBefore(to))) {
+        deducted += Duration(minutes: p.deductionMinutes!);
+      }
+    }
     return end.difference(start) - deducted;
   }
 
@@ -87,13 +109,18 @@ class ChronoSession {
         startTime: a,
         endTime: open ? null : b,
         pauses: pauses
+            .where((p) =>
+                p.deductionMinutes == null ||
+                (!p.start.isBefore(from) && p.start.isBefore(to)))
             .map((p) {
+              if (p.deductionMinutes != null) return p;
               final ps = p.start.isAfter(a) ? p.start : a;
               final pe = (p.end ?? now).isBefore(b) ? (p.end ?? now) : b;
               return PauseEntry(
                   start: ps, end: p.end == null && open ? null : pe);
             })
-            .where((p) => (p.end ?? now).isAfter(p.start))
+            .where((p) =>
+                p.deductionMinutes != null || (p.end ?? now).isAfter(p.start))
             .toList());
   }
 

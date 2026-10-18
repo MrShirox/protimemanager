@@ -57,7 +57,8 @@ class MedicationNotifications {
     android: AndroidNotificationDetails(
       'medication_expiry',
       'Péremption des médicaments',
-      channelDescription: 'Rappels un mois avant et le jour de péremption',
+      channelDescription:
+          'Rappels au début du mois précédent et du mois de péremption',
       importance: Importance.high,
       priority: Priority.high,
     ),
@@ -74,9 +75,9 @@ class MedicationNotifications {
     await _initialize();
     final allowed = await _permission(requestPermission);
     final now = tz.TZDateTime.from(_now(), tz.local);
-    final today = DateTime(now.year, now.month, now.day);
+    final today = DateTime(now.year, now.month);
     final eligible = items.where((m) {
-      final d = m.expiryDate;
+      final d = m.expiryMonth;
       return m.id != null &&
           d != null &&
           !DateTime(d.year, d.month, d.day).isBefore(today);
@@ -86,10 +87,8 @@ class MedicationNotifications {
     final plans = <({Medication item, int id, DateTime date, bool warning})>[];
     for (final item in eligible) {
       plans.add(
-          (item: item, id: item.id!, date: item.expiryDate!, warning: false));
-      if (DateTime(item.expiryDate!.year, item.expiryDate!.month,
-              item.expiryDate!.day)
-          .isAfter(today)) {
+          (item: item, id: item.id!, date: item.expiryMonth!, warning: false));
+      if (item.expiryMonth!.isAfter(today)) {
         plans.add((
           item: item,
           id: -item.id!,
@@ -128,7 +127,7 @@ class MedicationNotifications {
           morning.isAfter(now) ? morning : now.add(const Duration(seconds: 5));
       final key = 'medication.reminder.${plan.id}';
       final dateKey =
-          '${item.expiryDate!.year}-${item.expiryDate!.month}-${item.expiryDate!.day}';
+          'month:${item.expiryDate!.year}-${item.expiryDate!.month}';
       // Avoid repeat alerts on every launch after 09:00. Keep any pending one.
       if (!morning.isAfter(now) && prefs.getString(key) == dateKey) continue;
       await _plugin.zonedSchedule(
@@ -137,8 +136,8 @@ class MedicationNotifications {
             ? 'Médicament à remplacer bientôt'
             : 'Médicament à péremption',
         plan.warning
-            ? '${item.name} : péremption le ${item.expiryDate!.day}/${item.expiryDate!.month}/${item.expiryDate!.year}. Prévois son remplacement.'
-            : '${item.name} arrive à sa date de péremption aujourd’hui.',
+            ? '${item.name} : péremption ${item.expiryDate!.month}/${item.expiryDate!.year}. Prévois son remplacement.'
+            : '${item.name} : le mois de péremption est atteint (${item.expiryDate!.month}/${item.expiryDate!.year}).',
         when,
         _details,
         payload: 'medication:${item.id}',

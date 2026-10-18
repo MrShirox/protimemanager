@@ -15,35 +15,24 @@ class Medication {
     this.note = '',
   });
 
+  DateTime? get expiryMonth =>
+      expiryDate == null ? null : DateTime(expiryDate!.year, expiryDate!.month);
+  DateTime? get warningDate => expiryDate == null
+      ? null
+      : DateTime(expiryDate!.year, expiryDate!.month - 1);
   bool get isExpired =>
-      expiryDate != null &&
-      DateTime(expiryDate!.year, expiryDate!.month, expiryDate!.day).isBefore(
-          DateTime(
-              DateTime.now().year, DateTime.now().month, DateTime.now().day));
-
-  bool get expiresToday =>
-      expiryDate != null &&
-      expiryDate!.year == DateTime.now().year &&
-      expiryDate!.month == DateTime.now().month &&
-      expiryDate!.day == DateTime.now().day;
-
-  /// One calendar month, clamped to the last day of the previous month.
-  DateTime? get warningDate {
-    final expiry = expiryDate;
-    if (expiry == null) return null;
-    final last = DateTime(expiry.year, expiry.month, 0);
-    return DateTime(
-        last.year, last.month, expiry.day > last.day ? last.day : expiry.day);
-  }
-
+      expiryMonth != null &&
+      expiryMonth!
+          .isBefore(DateTime(DateTime.now().year, DateTime.now().month));
+  bool get expiresThisMonth =>
+      expiryMonth == DateTime(DateTime.now().year, DateTime.now().month);
   bool warningAt(DateTime now) =>
       warningDate != null &&
-      !DateTime(now.year, now.month, now.day).isBefore(warningDate!) &&
+      !DateTime(now.year, now.month).isBefore(warningDate!) &&
       !dueAt(now);
   bool dueAt(DateTime now) =>
-      expiryDate != null &&
-      !DateTime(now.year, now.month, now.day).isBefore(
-          DateTime(expiryDate!.year, expiryDate!.month, expiryDate!.day));
+      expiryMonth != null &&
+      !DateTime(now.year, now.month).isBefore(expiryMonth!);
   bool get needsReplacement => warningAt(DateTime.now());
   bool get isDue => dueAt(DateTime.now());
 
@@ -52,7 +41,7 @@ class Medication {
         'nom': name,
         'dosage': dosage,
         'quantite': quantity,
-        'datePeremption': expiryDate?.toIso8601String(),
+        'datePeremption': expiryMonth?.toIso8601String(),
         'note': note,
       };
 

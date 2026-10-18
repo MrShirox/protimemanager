@@ -9,7 +9,14 @@ const constanteSections = {
     'Perception'
   ],
   'Respiratoire': ['SpO2', 'FR'],
-  'Neuro': ['Conscience', 'Observations neurologiques'],
+  'Neuro': [
+    'FAST FACE',
+    'FAST ARM',
+    'FAST SPEECH',
+    'FAST TIME',
+    'Conscience',
+    'Observations neurologiques'
+  ],
   'Métabolique / autres': ['Température', 'Glycémie', 'Acétone', 'Remarques'],
 };
 

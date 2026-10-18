@@ -70,7 +70,7 @@ class WorkControls extends StatelessWidget {
       if (chrono.isRunning) ...[
         const Padding(
             padding: EdgeInsets.only(top: 12, bottom: 4),
-            child: Text('Prendre une pause')),
+            child: Text('Déduire une pause (le chrono continue)')),
         Wrap(spacing: 6, children: [
           for (final minutes in [20, 30, 45, 50, 60])
             OutlinedButton(

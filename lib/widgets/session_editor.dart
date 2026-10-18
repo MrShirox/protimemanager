@@ -108,7 +108,8 @@ class _SessionEditorState extends State<SessionEditor> {
           startTime: _start,
           endTime: _end,
           pauses: _pauses
-              .map((p) => _end != null &&
+              .map((p) => p.deductionMinutes == null &&
+                      _end != null &&
                       (p.end == null || (p.scheduled && p.end!.isAfter(_end!)))
                   ? PauseEntry(start: p.start, end: _end)
                   : p)
@@ -150,7 +151,7 @@ class _SessionEditorState extends State<SessionEditor> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                      'Les horaires de la session complète sont modifiés. Les heures et pauses sont réparties automatiquement à minuit.'),
+                      'Modifie les horaires et les pauses de la session complète. Une déduction de pause est rattachée à sa date d’imputation ; elle ne bloque pas le chrono.'),
                   _dateTime('Début', _start, (v) => _start = v),
                   if (_end != null)
                     _dateTime('Fin', _end!, (v) => _end = v, after: _start)
@@ -177,8 +178,9 @@ class _SessionEditorState extends State<SessionEditor> {
                   Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Pauses',
-                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        const Expanded(
+                            child: Text('Pauses',
+                                style: TextStyle(fontWeight: FontWeight.bold))),
                         TextButton.icon(
                             onPressed: _saving
                                 ? null
@@ -187,8 +189,10 @@ class _SessionEditorState extends State<SessionEditor> {
                                           ? _start
                                           : (_pauses.last.end ??
                                               _pauses.last.start);
-                                      _pauses.add(
-                                          PauseEntry(start: start, end: start));
+                                      _pauses.add(PauseEntry(
+                                          start: start,
+                                          end: start,
+                                          deductionMinutes: 20));
                                     }),
                             icon: const Icon(Icons.add),
                             label: const Text('Ajouter')),
@@ -205,42 +209,66 @@ class _SessionEditorState extends State<SessionEditor> {
                                   : () => setState(() => _pauses.removeAt(i)),
                               icon: const Icon(Icons.close)),
                         ]),
-                    _dateTime(
-                        'Début de pause',
-                        _pauses[i].start,
-                        (v) => _pauses[i] = PauseEntry(
-                            start: v,
-                            end: _pauses[i].end,
-                            scheduled: _pauses[i].scheduled)),
-                    if (_pauses[i].end != null)
+                    if (_pauses[i].deductionMinutes != null) ...[
                       _dateTime(
-                          'Fin de pause',
-                          _pauses[i].end!,
+                          'Date d’imputation',
+                          _pauses[i].start,
                           (v) => _pauses[i] = PauseEntry(
-                              start: _pauses[i].start,
+                              start: v,
                               end: v,
-                              scheduled: _pauses[i].scheduled),
-                          after: _pauses[i].start)
-                    else
-                      const Text('Pause en cours'),
-                    if (_end == null && i == _pauses.length - 1)
-                      TextButton(
-                          onPressed: _saving
-                              ? null
-                              : () => setState(() {
-                                    final p = _pauses[i];
-                                    _pauses[i] = PauseEntry(
-                                        start: p.start,
-                                        end: p.end == null
-                                            ? context
-                                                .read<PlanningProvider>()
-                                                .store
-                                                .now()
-                                            : null);
-                                  }),
-                          child: Text(_pauses[i].end == null
-                              ? 'Renseigner la fin de pause'
-                              : 'Laisser la pause en cours')),
+                              deductionMinutes: _pauses[i].deductionMinutes)),
+                      TextFormField(
+                        key: ObjectKey(_pauses[i]),
+                        initialValue: '${_pauses[i].deductionMinutes}',
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                            labelText: 'Durée à déduire (minutes)'),
+                        onChanged: (v) {
+                          final p = _pauses[i];
+                          _pauses[i] = PauseEntry(
+                              start: p.start,
+                              end: p.start,
+                              deductionMinutes: int.tryParse(v) ?? 0);
+                        },
+                      ),
+                    ] else ...[
+                      _dateTime(
+                          'Début de pause',
+                          _pauses[i].start,
+                          (v) => _pauses[i] = PauseEntry(
+                              start: v,
+                              end: _pauses[i].end,
+                              scheduled: _pauses[i].scheduled)),
+                      if (_pauses[i].end != null)
+                        _dateTime(
+                            'Fin de pause',
+                            _pauses[i].end!,
+                            (v) => _pauses[i] = PauseEntry(
+                                start: _pauses[i].start,
+                                end: v,
+                                scheduled: _pauses[i].scheduled),
+                            after: _pauses[i].start)
+                      else
+                        const Text('Pause en cours'),
+                      if (_end == null && i == _pauses.length - 1)
+                        TextButton(
+                            onPressed: _saving
+                                ? null
+                                : () => setState(() {
+                                      final p = _pauses[i];
+                                      _pauses[i] = PauseEntry(
+                                          start: p.start,
+                                          end: p.end == null
+                                              ? context
+                                                  .read<PlanningProvider>()
+                                                  .store
+                                                  .now()
+                                              : null);
+                                    }),
+                            child: Text(_pauses[i].end == null
+                                ? 'Renseigner la fin de pause'
+                                : 'Laisser la pause en cours')),
+                    ],
                     const Divider(),
                   ],
                   if (_error != null)

@@ -1,42 +1,21 @@
-# Médicaments et rappels de péremption
+# Médicaments et rappels par mois
 
-L'écran Médicaments permet d'ajouter, modifier et supprimer les fiches SQLite.
-Le nom, la quantité entière et la date de péremption sont validés avant sauvegarde.
-Les anciennes fiches sans date restent lisibles et demandent une date à l'édition.
+La saisie demande un mois et une année, sans jour. Exemple : **janvier 2027**.
+La liste devient orange dès le **1er décembre 2026**, puis rouge dès le **1er janvier 2027**.
+Le rouge signifie que le mois indiqué sur la fiche est atteint.
 
-Deux notifications locales Android/iOS sont programmées vers 9 h, dans le fuseau du
-téléphone : un mois calendaire avant, puis le jour de péremption. La liste devient
-orange à la première date et rouge à la seconde. Une saisie pendant le dernier mois
-déclenche un avertissement de rattrapage. Pour une saisie le jour même après 9 h, le rappel
-est programmé dès que possible. Les dates déjà dépassées restent signalées dans
-la liste et ne déclenchent pas de notification rétroactive.
+Deux notifications locales Android/iOS sont programmées à 09 h dans le fuseau du téléphone : le premier jour du mois précédent, puis le premier jour du mois de péremption. Lors d'un ajout pendant un de ces mois, le rappel déjà dû est programmé dès que possible, une seule fois par phase et par mois enregistré. Aucun rattrapage n'est émis pour les mois de péremption déjà passés.
 
-L'identifiant SQLite sert d'identifiant du rappel d'échéance ; son opposé négatif
-identifie l'avertissement un mois avant. Une modification remplace les deux
-rappels, une suppression les annule. Les rappels sont réconciliés au
-démarrage et au retour dans l'application. Android les restaure après redémarrage
-du téléphone. Un marqueur persistant évite de renvoyer le rappel du jour à chaque
-ouverture. La programmation dépend de l'autorisation du téléphone ; un bandeau
-signale un refus ou un échec sans perdre les données déjà sauvegardées.
+Les anciennes dates restent lisibles : seul leur mois est utilisé pour l'affichage, les couleurs et les rappels. À la prochaine sauvegarde, la date SQLite est normalisée au premier jour du mois. Les identifiants de notification restent l'identifiant SQLite et son opposé négatif ; une modification ou suppression réconcilie les deux rappels. Les anciens marqueurs journaliers sont remplacés par des marqueurs mensuels et les rappels reprogrammés à l'ouverture ou au retour dans l'application.
 
-Android utilise des alarmes non exactes : l'économie d'énergie peut décaler
-l'heure de réception. Un arrêt forcé ou les restrictions du fabricant peuvent
-empêcher la réception. Sur iOS, les 64 prochains rappels sont programmés
-pour respecter la limite système ; un message demande de rouvrir régulièrement
-l'application lorsque cette limite est dépassée.
+Les notifications nécessitent l'autorisation du téléphone. Android utilise des alarmes non exactes, susceptibles d'être différées par les restrictions d'énergie ; les alarmes sont restaurées après redémarrage. Sur iOS, les 64 prochains rappels sont sélectionnés ; Android en sélectionne au maximum 450. L'application signale les refus et échecs de programmation sans annuler la sauvegarde.
 
 ## Vérification sur appareil
 
-1. Ajouter un médicament et accepter la demande de notifications.
-2. Choisir aujourd'hui après 9 h, quitter l'application normalement et vérifier
-   la notification système. Android peut différer l'alarme non exacte.
-3. Rouvrir l'application : aucun nouveau rappel identique ne doit être envoyé.
-4. Programmer une date future, la modifier, puis supprimer la fiche : vérifier
-   qu'aucun rappel de l'ancienne fiche ne subsiste.
-5. Refuser les notifications : vérifier le bandeau, puis les autoriser dans les
-   réglages et revenir à l'application.
-6. Vérifier aussi une péremption future après redémarrage Android.
+1. Ajouter un médicament dont la péremption est le mois prochain, autoriser les notifications et vérifier le rappel orange de rattrapage.
+2. Rouvrir l'application : le même rappel ne doit pas être répété.
+3. Modifier pour le mois actuel : vérifier le rouge et le rappel de mois atteint.
+4. Modifier puis supprimer une fiche : vérifier l'annulation des anciens rappels.
+5. Vérifier la livraison après redémarrage Android et avec les réglages d'économie d'énergie du téléphone.
 
-Les tests automatisés simulent les API natives de notification. Ils ne remplacent
-pas ces vérifications de réception. La configuration iOS doit être compilée et
-testée sur macOS avec un iPhone ou un simulateur.
+Les tests automatisés vérifient la programmation, les changements d'année, les douze mois, la sauvegarde et le sélecteur mois/année. La livraison système nécessite un téléphone ou un émulateur ; iOS doit être compilé et vérifié sur macOS.

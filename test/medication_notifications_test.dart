@@ -71,19 +71,19 @@ void main() {
 
   test('add, edit and delete reconcile the same OS reminder id', () async {
     expect(
-        await service.synchronize([item(DateTime(2090, 10, 20))],
+        await service.synchronize([item(DateTime(2090, 11, 20))],
             requestPermission: true, changedId: 7),
         isNull);
     expect(pending.keys, [-7, 7]);
     expect(
-        schedules().last.arguments['scheduledDateTime'], '2090-10-20T09:00:00');
+        schedules().last.arguments['scheduledDateTime'], '2090-11-01T09:00:00');
     expect(schedules().last.arguments['timeZoneName'], 'Europe/Paris');
     await service.synchronize(
         [item(DateTime(2090, 11, 3), name: 'Nouveau nom')],
         changedId: 7);
     expect(pending.length, 2);
     expect(
-        schedules().last.arguments['scheduledDateTime'], '2090-11-03T09:00:00');
+        schedules().last.arguments['scheduledDateTime'], '2090-11-01T09:00:00');
     expect(pending[7]!['body'], contains('Nouveau nom'));
     await service.synchronize([], changedId: 7);
     expect(pending, isEmpty);
@@ -115,10 +115,10 @@ void main() {
   });
 
   test('expired or undated medication cancels its old reminder', () async {
-    await service.synchronize([item(DateTime(2090, 10, 20))]);
-    await service.synchronize([item(DateTime(2090, 10, 16))], changedId: 7);
+    await service.synchronize([item(DateTime(2090, 11, 20))]);
+    await service.synchronize([item(DateTime(2090, 9, 16))], changedId: 7);
     expect(pending, isEmpty);
-    await service.synchronize([item(DateTime(2090, 10, 20))]);
+    await service.synchronize([item(DateTime(2090, 11, 20))]);
     await service.synchronize([const Medication(id: 7, name: 'Ancien')]);
     expect(pending, isEmpty);
   });
@@ -139,14 +139,14 @@ void main() {
       () async {
     await service.synchronize([item(DateTime(2091, 3, 31))]);
     expect(schedules().map((c) => c.arguments['scheduledDateTime']),
-        ['2091-02-28T09:00:00', '2091-03-31T09:00:00']);
+        ['2091-02-01T09:00:00', '2091-03-01T09:00:00']);
     expect(pending[-7]!['title'], contains('bientôt'));
     expect(pending[7]!['title'], contains('péremption'));
   });
 
   test('late warning is caught up once and does not replace expiry alert',
       () async {
-    final items = [item(DateTime(2090, 10, 20))];
+    final items = [item(DateTime(2090, 11, 20))];
     await service.synchronize(items);
     expect(schedules().first.arguments['scheduledDateTime'],
         '2090-10-17T12:00:05');
@@ -157,12 +157,36 @@ void main() {
   });
 
   test('orange begins a calendar month before; red includes expiry day', () {
-    final m = item(DateTime(2028, 3, 31));
-    expect(m.warningDate, DateTime(2028, 2, 29));
-    expect(m.warningAt(DateTime(2028, 2, 28)), isFalse);
-    expect(m.warningAt(DateTime(2028, 2, 29)), isTrue);
-    expect(m.warningAt(DateTime(2028, 3, 31)), isFalse);
-    expect(m.dueAt(DateTime(2028, 3, 31)), isTrue);
+    final m = item(DateTime(2028, 3, 1));
+    expect(m.warningDate, DateTime(2028, 2, 1));
+    expect(m.warningAt(DateTime(2028, 1, 31)), isFalse);
+    expect(m.warningAt(DateTime(2028, 2, 1)), isTrue);
+    expect(m.warningAt(DateTime(2028, 3, 1)), isFalse);
+    expect(m.dueAt(DateTime(2028, 3, 1)), isTrue);
     expect(m.dueAt(DateTime(2028, 4, 1)), isTrue);
+  });
+
+  test('all twelve months use their first day, including December to January',
+      () {
+    for (var month = 1; month <= 12; month++) {
+      final m = item(DateTime(2027, month, 12));
+      final warning = DateTime(2027, month - 1);
+      expect(m.warningDate, warning);
+      expect(m.warningAt(warning), isTrue);
+      expect(m.warningAt(DateTime(2027, month)), isFalse);
+      expect(m.dueAt(DateTime(2027, month)), isTrue);
+      expect(DateTime.parse(m.toMap()['datePeremption'] as String),
+          DateTime(2027, month));
+    }
+  });
+
+  test(
+      'January expiry schedules December and January first, replaces old day marker',
+      () async {
+    SharedPreferences.setMockInitialValues(
+        {'medication.reminder.7': '2091-1-12'});
+    await service.synchronize([item(DateTime(2091, 1, 12))]);
+    expect(schedules().map((c) => c.arguments['scheduledDateTime']),
+        ['2090-12-01T09:00:00', '2091-01-01T09:00:00']);
   });
 }

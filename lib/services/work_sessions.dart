@@ -57,6 +57,7 @@ class WorkSessions extends ChangeNotifier with WidgetsBindingObserver {
         return PauseEntry(
             start: DateTime.parse(p['startTime'] as String).toLocal(),
             scheduled: p['scheduled'] == 1,
+            deductionMinutes: p['deductionMinutes'] as int?,
             end: p['endTime'] == null
                 ? null
                 : DateTime.parse(p['endTime'] as String).toLocal());
@@ -160,10 +161,8 @@ class WorkSessions extends ChangeNotifier with WidgetsBindingObserver {
           ...current.pauses,
           PauseEntry(
               start: start,
-              end: minutes == null
-                  ? null
-                  : start.add(Duration(minutes: minutes)),
-              scheduled: minutes != null)
+              end: minutes == null ? null : start,
+              deductionMinutes: minutes)
         ]);
         _validate(updated, rows);
         await _write(db, updated);
@@ -237,6 +236,24 @@ class WorkSessions extends ChangeNotifier with WidgetsBindingObserver {
     DateTime? previousEnd;
     for (var i = 0; i < pauses.length; i++) {
       final p = pauses[i];
+      if (p.deductionMinutes != null) {
+        if (p.deductionMinutes! <= 0 ||
+            p.start.isBefore(session.startTime) ||
+            p.start.isAfter(end)) {
+          throw const WorkTimeException(
+              'La durée de pause doit être positive et sa date comprise dans la session.');
+        }
+        if (!end.isAfter(session.startTime) ||
+            !end.isAfter(dayStart(p.start)) ||
+            session
+                .workedDuration(clock,
+                    from: dayStart(p.start), to: nextDay(p.start))
+                .isNegative) {
+          throw const WorkTimeException(
+              'Les pauses dépassent le temps écoulé sur ce jour. Corrige la durée ou la date de la pause.');
+        }
+        continue;
+      }
       final pe = p.end ?? clock;
       if (p.start.isBefore(session.startTime) ||
           pe.isBefore(p.start) ||
@@ -277,6 +294,7 @@ class WorkSessions extends ChangeNotifier with WidgetsBindingObserver {
       await db.insert('pause_plages', {
         'sessionId': id,
         'scheduled': pause.scheduled ? 1 : 0,
+        'deductionMinutes': pause.deductionMinutes,
         'jour': dayKey(pause.start),
         'startMinutes': pause.start.hour * 60 + pause.start.minute,
         'endMinutes':
